@@ -29,6 +29,7 @@ func usage(_ st: Style) -> String {
     row(st.accent("murmur stop"), "stop speaking and drop anything queued"),
     row(st.accent("murmur voices"), "list the 28 voices; ✓ marks the installed ones"),
     row(st.accent("murmur voices install") + " " + st.arg("NAME…"), "install voices " + st.dim("(or --all; a missing voice also installs on first use)")),
+    row(st.accent("murmur phonemes") + " " + st.arg("<text…>"), "show how text will be pronounced"),
     row(st.accent("murmur setup") + " " + st.arg("[--from DIR]"), "install the voice model"),
     "",
     st.head("OPTIONS"),
@@ -164,6 +165,13 @@ case "-h", "--help":
   print(usage(Style(fd: 1)))
 case "stop":
   send(Request(stop: true))
+case "phonemes":
+  // The phonemizer lives with the model in murmurd; run it once there.
+  let words = Array(args.dropFirst())
+  guard !words.isEmpty else { fail("phonemes needs text") }
+  let argv: [UnsafeMutablePointer<CChar>?] = ([daemonPath(), "--phonemes"] + words).map { strdup($0) } + [nil]
+  execv(daemonPath(), argv)
+  fail("couldn't run \(daemonPath())")
 case "voices":
   if args.count > 1 && args[1] == "install" { installVoices(Array(args.dropFirst(2))) } else { listVoices() }
 case "setup":

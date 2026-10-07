@@ -11,6 +11,7 @@ git log -1 --format=%s | murmur          # or pipe text in
 murmur --voice bf_emma --speed 1.1 "Cheerio."
 murmur --interrupt "Stop that, say this."
 murmur voices                           # all 28 voices, installed ones marked
+murmur phonemes "Copy the ID."          # how it will be pronounced
 murmur stop
 ```
 
@@ -60,6 +61,21 @@ murmur --voice bm_lewis "Hello."       # a missing voice also installs on first 
 `af_heart` is the default and comes with the model. The other voice packs download from
 [onnx-community/Kokoro-82M-v1.0-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX),
 which publishes each voice as a separate file in the format the Neural Engine pipeline reads.
+
+## Pronunciation
+
+murmur fixes words Kokoro gets wrong before speaking: acronyms that are also dictionary
+words (`ID` is read as "id" otherwise) and tech words it spells out or mangles (`JSON`,
+`YAML`, `macOS`, `kubectl`, `stdout`…). Add your own in `~/.config/murmur/pronunciations`,
+one per line; they win over the built-in list and apply to the next thing said:
+
+```
+GIF = jif
+Kubernetes = koo ber net eez
+```
+
+Matching is by whole word and case-sensitive, so `ID` changes while `id` and `IDEA` don't.
+Check how anything will sound with `murmur phonemes "Copy the session ID."`.
 
 ## Development
 

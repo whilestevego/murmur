@@ -92,7 +92,7 @@ actor Speaker {
         request.voice = Defaults.voice
       }
     }
-    for sentence in sentences(request.text) {
+    for sentence in sentences(pronounce(request.text, Pronunciations.load())) {
       guard gen == generation else { return }
       let key = cacheKey(sentence, voice: request.voice, speed: request.speed)
       var samples = PhraseCache.get(key)
@@ -134,6 +134,25 @@ actor Speaker {
       engine.stop()
     }
   }
+}
+
+// `murmurd --phonemes TEXT…`: print how the text will be pronounced, then exit (behind `murmur phonemes`).
+if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
+  let text = CommandLine.arguments.dropFirst(2).joined(separator: " ")
+  let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
+  let done = DispatchSemaphore(value: 0)
+  Task {
+    do {
+      let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
+      try await m.initialize()
+      for sentence in sentences(pronounce(text, Pronunciations.load())) { print(try await m.phonemes(for: sentence)) }
+    } catch {
+      FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
+    }
+    done.signal()
+  }
+  done.wait()
+  exit(0)
 }
 
 // One murmurd per user: if another is already listening, leave it be.

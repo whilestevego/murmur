@@ -44,3 +44,22 @@ final class VoiceTests: XCTestCase {
     }
   }
 }
+
+final class PronunciationTests: XCTestCase {
+  func testWholeWordsOnlyAndCaseSensitive() {
+    let d = ["ID": "I D", "IDs": "I Ds", "JSON": "Jason"]
+    XCTAssertEqual(pronounce("Copy the session ID.", d), "Copy the session I D.")
+    XCTAssertEqual(pronounce("The IDs match; parse the JSON.", d), "The I Ds match; parse the Jason.")
+    XCTAssertEqual(pronounce("an id, an IDEA, a GUID, ID_1", d), "an id, an IDEA, a GUID, ID_1")
+    XCTAssertEqual(pronounce("(ID)", d), "(I D)")
+  }
+
+  func testParseFile() {
+    let mine = Pronunciations.parse("# mine\nGIF = jif\n  SQL=S Q L \nbroken line\n= nothing\n")
+    XCTAssertEqual(mine, ["GIF": "jif", "SQL": "S Q L"])
+  }
+
+  func testDefaultsFixTheKnownCases() {
+    XCTAssertEqual(pronounce("Check the ID in the JSON.", Pronunciations.defaults), "Check the I D in the Jason.")
+  }
+}
