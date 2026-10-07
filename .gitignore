@@ -1,4 +1,3 @@
 .build/
 .swiftpm/
 *.xcodeproj
-claude-plugin/.claude-plugin/types/
