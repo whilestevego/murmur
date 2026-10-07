@@ -9,6 +9,8 @@ public enum Pronunciations {
     "TODO": "to do", "TODOs": "to dos", "todo": "to do", "todos": "to dos", "Todo": "To do", "Todos": "To dos",
     "to-do": "to do", "to-dos": "to dos", "To-do": "To do", "TodoWrite": "to do write",
     "goto": "go to", "Goto": "Go to", "GOTO": "go to", "gotos": "go tos",
+    "repos": "reepos", "Repos": "Reepos", "monorepo": "mono reepo", "Monorepo": "Mono reepo",
+    "monorepos": "mono reepos", "Monorepos": "Mono reepos",
     "macOS": "mac O S", "GraphQL": "graph Q L", "OAuth": "oh auth",
     "kubectl": "cube control", "nginx": "engine X",
     "stdout": "standard out", "stderr": "standard error", "stdin": "standard in",
