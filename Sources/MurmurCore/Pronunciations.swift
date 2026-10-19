@@ -12,6 +12,7 @@ public enum Pronunciations {
     "repos": "reepos", "Repos": "Reepos", "monorepo": "mono reepo", "Monorepo": "Mono reepo",
     "monorepos": "mono reepos", "Monorepos": "Mono reepos",
     "rebase": "reebase", "rebased": "reebased", "rebases": "reebases", "rebasing": "reebasing",
+    "today's": "todays", "Today's": "Todays",
     "Rebase": "Reebase", "Rebased": "Reebased", "Rebases": "Reebases", "Rebasing": "Reebasing",
     "macOS": "mac O S", "GraphQL": "graph Q L", "OAuth": "oh auth",
     "kubectl": "cube control", "nginx": "engine X",
@@ -43,6 +44,8 @@ public enum Pronunciations {
 
 /// Rewrites whole words only, matching case exactly: "ID" changes, "id" and "IDEA" don't.
 public func pronounce(_ text: String, _ dictionary: [String: String]) -> String {
+  // A curly apostrophe (it’s) is read as a separate "s"; the straight one reads right.
+  let text = text.replacingOccurrences(of: "\u{2019}", with: "'")
   guard !dictionary.isEmpty else { return text }
   let words = dictionary.keys.sorted { $0.count > $1.count }.map(NSRegularExpression.escapedPattern(for:))
   let pattern = "(?<![\\p{L}\\p{N}_])(" + words.joined(separator: "|") + ")(?![\\p{L}\\p{N}_])"

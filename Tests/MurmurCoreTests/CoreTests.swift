@@ -67,5 +67,6 @@ final class PronunciationTests: XCTestCase {
     XCTAssertEqual(pronounce("Run /goto, then GOTO.", Pronunciations.defaults), "Run /go to, then go to.")
     XCTAssertEqual(pronounce("Both repos, one monorepo.", Pronunciations.defaults), "Both reepos, one mono reepo.")
     XCTAssertEqual(pronounce("Rebase, then keep rebasing.", Pronunciations.defaults), "Reebase, then keep reebasing.")
+    XCTAssertEqual(pronounce("Today’s fix: it’s today's.", Pronunciations.defaults), "Todays fix: it's todays.")
   }
 }
