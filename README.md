@@ -52,7 +52,7 @@ murmur setup --from DIR      # or install it from a local KokoroBundle instead
 All 28 of Kokoro's English voices: American and British, female and male.
 
 ```sh
-murmur voices                          # list them; ✓ marks the installed ones
+murmur voices                          # list them with their grades; ✓ marks the installed ones
 murmur voices install af_nicole        # install some (~510 KB each)
 murmur voices install --all            # or all of them (~14 MB)
 murmur --voice bm_lewis "Hello."       # a missing voice also installs on first use
@@ -61,6 +61,11 @@ murmur --voice bm_lewis "Hello."       # a missing voice also installs on first 
 `af_heart` is the default and comes with the model. The other voice packs download from
 [onnx-community/Kokoro-82M-v1.0-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX),
 which publishes each voice as a separate file in the format the Neural Engine pipeline reads.
+
+The grade beside each voice is Kokoro's own, from its
+[VOICES.md](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md): an estimate of how good
+and how plentiful the voice's training audio was. `af_heart` (A) and `af_bella` (A-) sound best;
+the D and F voices are noticeably rougher.
 
 ## Pronunciation
 

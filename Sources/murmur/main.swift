@@ -27,7 +27,7 @@ func usage(_ st: Style) -> String {
     st.head("USAGE"),
     row(st.accent("murmur") + " " + st.arg("[options] <text…>"), "speak text, or pipe it on stdin; returns at once"),
     row(st.accent("murmur stop"), "stop speaking and drop anything queued"),
-    row(st.accent("murmur voices"), "list the 28 voices; ✓ marks the installed ones"),
+    row(st.accent("murmur voices"), "list the 28 voices with Kokoro's grades; ✓ marks the installed ones"),
     row(st.accent("murmur voices install") + " " + st.arg("NAME…"), "install voices " + st.dim("(or --all; a missing voice also installs on first use)")),
     row(st.accent("murmur phonemes") + " " + st.arg("<text…>"), "show how text will be pronounced"),
     row(st.accent("murmur setup") + " " + st.arg("[--from DIR]"), "install the voice model"),
@@ -125,7 +125,9 @@ func listVoices() {
     let installed = VoicePacks.isInstalled(v.name)
     let mark = installed ? st.accent("✓") : st.dim("·")
     let name = v.name.padding(toLength: 13, withPad: " ", startingAt: 0)
-    print("  \(mark) \(installed ? st.bold(name) : st.dim(name)) \(st.dim(v.label))" + (v.name == Defaults.voice ? "  " + st.arg("default") : ""))
+    let label = v.label.padding(toLength: 9, withPad: " ", startingAt: 0)
+    print("  \(mark) \(installed ? st.bold(name) : st.dim(name)) \(st.dim(label)) \(v.grade)"
+      + (v.name == Defaults.voice ? String(repeating: " ", count: 4 - v.grade.count) + st.arg("default") : ""))
   }
   let missing = voiceCatalog.filter { !VoicePacks.isInstalled($0.name) }.count
   print("\n" + st.dim("\(voiceCatalog.count - missing) installed, \(missing) not. ")

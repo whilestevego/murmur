@@ -30,9 +30,11 @@ final class VoiceTests: XCTestCase {
   func testCatalog() {
     XCTAssertEqual(voiceCatalog.count, 28)
     XCTAssertEqual(Set(voiceCatalog.map(\.name)).count, 28)
-    XCTAssertTrue(voiceCatalog.contains(VoiceInfo(name: "af_nicole", group: "American female")))
+    XCTAssertTrue(voiceCatalog.contains(VoiceInfo(name: "af_nicole", group: "American female", grade: "B-")))
+    XCTAssertEqual(voiceCatalog.first { $0.name == Defaults.voice }?.grade, "A")
+    XCTAssertTrue(voiceCatalog.allSatisfy { $0.grade.range(of: "^[A-F][+-]?$", options: .regularExpression) != nil })
     XCTAssertTrue(voiceCatalog.contains { $0.name == Defaults.voice })
-    XCTAssertEqual(VoiceInfo(name: "bm_george", group: "British male").label, "George")
+    XCTAssertEqual(VoiceInfo(name: "bm_george", group: "British male", grade: "C").label, "George")
   }
 
   func testInstallRejectsUnknownVoiceWithoutNetwork() async {

@@ -3,20 +3,31 @@ import Foundation
 public struct VoiceInfo: Equatable {
   public let name: String
   public let group: String
+  /// Kokoro's own "Overall Grade" for the voice (A to F): how good and how plentiful its training audio was.
+  public let grade: String
 
   /// "af_nicole" → "Nicole"
   public var label: String { String(name.dropFirst(3)).capitalized }
 }
 
-/// Kokoro v1.0's 28 English voices, grouped by accent and gender (the name's first two letters).
+/// Kokoro v1.0's 28 English voices, grouped by accent and gender (the name's first two letters), with the grades
+/// from Kokoro's VOICES.md (https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
 public let voiceCatalog: [VoiceInfo] = {
-  let groups = [
-    ("af", "American female", ["alloy", "aoede", "bella", "heart", "jessica", "kore", "nicole", "nova", "river", "sarah", "sky"]),
-    ("am", "American male", ["adam", "echo", "eric", "fenrir", "liam", "michael", "onyx", "puck", "santa"]),
-    ("bf", "British female", ["alice", "emma", "isabella", "lily"]),
-    ("bm", "British male", ["daniel", "fable", "george", "lewis"]),
+  let groups: [(String, String, KeyValuePairs<String, String>)] = [
+    ("af", "American female", [
+      "alloy": "C", "aoede": "C+", "bella": "A-", "heart": "A", "jessica": "D", "kore": "C+",
+      "nicole": "B-", "nova": "C", "river": "D", "sarah": "C+", "sky": "C-",
+    ]),
+    ("am", "American male", [
+      "adam": "F+", "echo": "D", "eric": "D", "fenrir": "C+", "liam": "D", "michael": "C+",
+      "onyx": "D", "puck": "C+", "santa": "D-",
+    ]),
+    ("bf", "British female", ["alice": "D", "emma": "B-", "isabella": "C", "lily": "D"]),
+    ("bm", "British male", ["daniel": "D", "fable": "C", "george": "C", "lewis": "D+"]),
   ]
-  return groups.flatMap { prefix, group, names in names.map { VoiceInfo(name: "\(prefix)_\($0)", group: group) } }
+  return groups.flatMap { prefix, group, voices in
+    voices.map { VoiceInfo(name: "\(prefix)_\($0.key)", group: group, grade: $0.value) }
+  }
 }()
 
 public enum VoicePacks {
