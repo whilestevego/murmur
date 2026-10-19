@@ -71,11 +71,16 @@ the D and F voices are noticeably rougher.
 
 Before Kokoro sees the text, murmur fixes what it would misread:
 
-- **Tech text:** links (`https://github.com/a/b` → "github dot com"), file paths and names
+- **Numbers, dates and the like:** years (`1994` → "nineteen ninety four"), dates, times
+  (`1:59 p.m.`, `10:30`), money (`$2.5 million`, `$20/mo`), percentages, fractions, measures
+  (`12kg`, `2°C`, `200ms`), decades, ranges, phone numbers, IP addresses, emails, Roman
+  numerals after words like Chapter, and simple math. These follow
+  [NVIDIA NeMo's](https://github.com/NVIDIA/NeMo-text-processing) English text normalization:
+  `make nemo` scores murmur against NeMo's 433 test cases, and `Tests/nemo/deviations.txt`
+  lists the ones murmur reads differently on purpose, each with its reason.
+- **Code:** links (`https://github.com/a/b` → "github dot com"), file paths and names
   (`~/app/main.swift` → "main dot swift"), versions (`v1.2.3` → "version 1 point 2 point 3"),
-  dates, grouped numbers, clock times, money, percentages, units (`200ms` → "200
-  milliseconds"), numbers glued to letters, symbols (`→`, `>=`), `snake_case`, and
-  `camelCase` names Kokoro doesn't know.
+  dotted names (`process.env`), `snake_case`, and `camelCase` names Kokoro doesn't know.
 - **Word endings:** Kokoro's dictionary lists `today` but not `today's`, `rebased` or
   `PRs`. Its own text frontend, [misaki](https://github.com/hexgrad/misaki), works these out
   from the root word, but FluidAudio leaves them to a small neural guesser that misreads some.
@@ -103,10 +108,12 @@ Matching is by whole word. Respellings are case-sensitive, so `ID` changes while
 ```sh
 make test     # unit tests for the shared core
 make build    # release build into .build/release
+make nemo     # score the text cleanup against NeMo's cases (needs the model; SHOW=1 lists failures)
 ```
 
 Logs: `~/Library/Caches/murmur/murmurd.log`.
 
 ## License
 
-MIT for murmur. Kokoro-82M is Apache-2.0; FluidAudio is Apache-2.0.
+MIT for murmur. Kokoro-82M is Apache-2.0; FluidAudio is Apache-2.0; the NeMo test cases in
+`Tests/nemo` are Apache-2.0 (see its NOTICE).

@@ -1,0 +1,44 @@
+# Cases murmur reads differently from NeMo on purpose: written form ~ why. score.py counts them apart from failures.
+13000~NeMo reads it digit by digit; as an amount it's "thirteen thousand"
+123000~NeMo reads it digit by digit; as an amount it's "one hundred twenty three thousand"
+978-0~a dash between numbers reads as "to"
+from 2-10~a dash between numbers reads as "to"
+2-5~a dash between numbers reads as "to"
+170 - 45190~a dash between numbers reads as "to"
+1-8090~a dash between numbers reads as "to"
+2x8~"by", as NeMo itself reads 2x8 m2
+2+3 m2~m2 is "square meters", as NeMo reads 5 m2 elsewhere
+2006-08-05~NeMo writes "august", which Kokoro reads as the adjective; murmur writes the month, August
+august 23 2002~NeMo writes "august", which Kokoro reads as the adjective; murmur writes the month, August
+http://www.ourdailynews.com.sm~links: murmur says only the host, since a whole link is noise aloud
+https://www.ourdailynews.com.sm~links: murmur says only the host, since a whole link is noise aloud
+https://developer.nvidia.com/drive-sim-early-access-program~links: murmur says only the host, since a whole link is noise aloud
+https://developer.nvidia.com/cv-cuda/early-access~links: murmur says only the host, since a whole link is noise aloud
+https://www.nvidia.com/dgx-basepod~links: murmur says only the host, since a whole link is noise aloud
+https://www.nvidia.com/dgx-basepod.sm/3~links: murmur says only the host, since a whole link is noise aloud
+http://www.nvidia.com/rtx-6000~links: murmur says only the host, since a whole link is noise aloud
+https://www.nvidia.com/dgx-basepod/~links: murmur says only the host, since a whole link is noise aloud
+file:///c/code/NeMo/docs/build/html/processing/intro.html~file paths: murmur says only the file name
+file:///photos/image.jpg~file paths: murmur says only the file name
+www.ourdailynews.com/123-sm~NeMo spells "sm" here but not in ourdailynews.com/12-sm; murmur keeps it a word
+sdf@gmail.com/123-sm~NeMo spells "sm" here but not in ourdailynews.com/12-sm; murmur keeps it a word
+sdf@gmail.abc/123-sm~NeMo spells "sm" here but not in ourdailynews.com/12-sm; murmur keeps it a word
+sdf@gmail.abc/123456-sm~NeMo spells "sm" here but not in ourdailynews.com/12-sm; murmur keeps it a word
+rtxprohelp@exchange.nvidia.com~run-together words need a word splitter
+enterpriseservices@nvidia.com~run-together words need a word splitter
+i can use your card ending in 8876~needs the meaning of "card ending in"
+3 cc/s~"per second": s after a slash is a unit
+45º&C~garbled input
+111st~an invalid ordinal reads as the number plus its letters
+Sam II~names with Roman numerals are ambiguous (Rocky IV, Henry VIII); murmur reads them only after words like Chapter
+1-413-te-b-1-5~serial codes: NeMo's own readings of dashes and digits are inconsistent
+b-c-1-5-b-s-b~serial codes: NeMo's own readings of dashes and digits are inconsistent
+MIG-25/235212-asdg~serial codes: NeMo's own readings of dashes and digits are inconsistent
+1/f-4s~serial codes: NeMo's own readings of dashes and digits are inconsistent
+1/f~serial codes: NeMo's own readings of dashes and digits are inconsistent
+123/261788/2021~serial codes: NeMo's own readings of dashes and digits are inconsistent
+4s~"seconds": 5s in tech text is a duration
+$12@12%~garbled input
+2*8~"times" between numbers
+1-800-GO-U-HAUL~phone numbers spelled with letters
+1-800-GO-2-HAUL~phone numbers spelled with letters

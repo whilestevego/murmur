@@ -1,0 +1,6 @@
+The case files in this folder (address.txt … word.txt) are NeMo's test_cases_<name>.txt, copied unchanged from
+NVIDIA NeMo Text Processing,
+tests/nemo_text_processing/en/data_text_normalization/ (https://github.com/NVIDIA/NeMo-text-processing),
+licensed under the Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+
+Copyright (c) NVIDIA CORPORATION. All rights reserved.
