@@ -11,6 +11,8 @@ public enum Pronunciations {
     "goto": "go to", "Goto": "Go to", "GOTO": "go to", "gotos": "go tos",
     "repos": "reepos", "Repos": "Reepos", "monorepo": "mono reepo", "Monorepo": "Mono reepo",
     "monorepos": "mono reepos", "Monorepos": "Mono reepos",
+    "rebase": "reebase", "rebased": "reebased", "rebases": "reebases", "rebasing": "reebasing",
+    "Rebase": "Reebase", "Rebased": "Reebased", "Rebases": "Reebases", "Rebasing": "Reebasing",
     "macOS": "mac O S", "GraphQL": "graph Q L", "OAuth": "oh auth",
     "kubectl": "cube control", "nginx": "engine X",
     "stdout": "standard out", "stderr": "standard error", "stdin": "standard in",
