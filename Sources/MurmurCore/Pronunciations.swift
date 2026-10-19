@@ -50,17 +50,16 @@ extension Pronunciations {
   }
 }
 
-/// Text as murmur says it: your respellings applied, cut into sentences, each with the exact sounds FluidAudio should
-/// use for its words (yours, and the ones misaki's rules work out).
+/// Text as murmur says it: tech text cleaned up, your respellings applied, cut into sentences, each with the exact
+/// sounds FluidAudio should use for its words (yours, and the ones misaki's rules work out).
 public func prepare(_ text: String, _ pronunciations: [String: String], _ lexicon: Lexicon) -> [(text: String, sounds: [String: String])] {
   let (respell, mine) = Pronunciations.split(pronunciations)
-  return sentences(pronounce(text, respell)).map { ($0, lexicon.sounds(for: $0, mine: mine)) }
+  let clean = normalize(text) { lexicon.entry($0) != nil || respell[$0] != nil || mine[$0] != nil || mine[$0.lowercased()] != nil }
+  return sentences(pronounce(clean, respell)).map { ($0, lexicon.sounds(for: $0, mine: mine)) }
 }
 
 /// Rewrites whole words only, matching case exactly: "ID" changes, "id" and "IDEA" don't.
 public func pronounce(_ text: String, _ dictionary: [String: String]) -> String {
-  // A curly apostrophe (it’s) is read as a separate "s"; the straight one reads right.
-  let text = text.replacingOccurrences(of: "\u{2019}", with: "'")
   guard !dictionary.isEmpty else { return text }
   let words = dictionary.keys.sorted { $0.count > $1.count }.map(NSRegularExpression.escapedPattern(for:))
   let pattern = "(?<![\\p{L}\\p{N}_])(" + words.joined(separator: "|") + ")(?![\\p{L}\\p{N}_])"

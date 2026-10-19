@@ -71,6 +71,11 @@ the D and F voices are noticeably rougher.
 
 Before Kokoro sees the text, murmur fixes what it would misread:
 
+- **Tech text:** links (`https://github.com/a/b` → "github dot com"), file paths and names
+  (`~/app/main.swift` → "main dot swift"), versions (`v1.2.3` → "version 1 point 2 point 3"),
+  dates, grouped numbers, clock times, money, percentages, units (`200ms` → "200
+  milliseconds"), numbers glued to letters, symbols (`→`, `>=`), `snake_case`, and
+  `camelCase` names Kokoro doesn't know.
 - **Word endings:** Kokoro's dictionary lists `today` but not `today's`, `rebased` or
   `PRs`. Its own text frontend, [misaki](https://github.com/hexgrad/misaki), works these out
   from the root word, but FluidAudio leaves them to a small neural guesser that misreads some.
