@@ -69,18 +69,29 @@ the D and F voices are noticeably rougher.
 
 ## Pronunciation
 
-murmur fixes words Kokoro gets wrong before speaking: acronyms that are also dictionary
-words (`ID` is read as "id" otherwise) and tech words it spells out or mangles (`JSON`,
-`YAML`, `macOS`, `kubectl`, `stdout`…). Add your own in `~/.config/murmur/pronunciations`,
-one per line; they win over the built-in list and apply to the next thing said:
+Before Kokoro sees the text, murmur fixes what it would misread:
+
+- **Word endings:** Kokoro's dictionary lists `today` but not `today's`, `rebased` or
+  `PRs`. Its own text frontend, [misaki](https://github.com/hexgrad/misaki), works these out
+  from the root word, but FluidAudio leaves them to a small neural guesser that misreads some.
+  murmur applies misaki's rules first, so `today's` sounds like `today` plus "z".
+- **A built-in list** of words Kokoro gets wrong: acronyms that are also dictionary words
+  (`ID` is read as "id" otherwise) and tech words it spells out or mangles (`JSON`, `macOS`,
+  `kubectl`, `stdout`…).
+
+Add your own in `~/.config/murmur/pronunciations`, one per line. Each is either a
+respelling or exact sounds between slashes, in the notation `murmur phonemes` prints. Exact
+sounds also apply to the word's endings: `rebase` below fixes `rebased` and `rebasing` too.
+Yours win over the built-in list and apply to the next thing said:
 
 ```
 GIF = jif
 Kubernetes = koo ber net eez
+rebase = /ɹˈibˌAs/
 ```
 
-Matching is by whole word and case-sensitive, so `ID` changes while `id` and `IDEA` don't.
-Check how anything will sound with `murmur phonemes "Copy the session ID."`.
+Matching is by whole word. Respellings are case-sensitive, so `ID` changes while `id` and
+`IDEA` don't. Check how anything will sound with `murmur phonemes "Copy the session ID."`.
 
 ## Development
 

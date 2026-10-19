@@ -11,9 +11,9 @@ public enum Pronunciations {
     "goto": "go to", "Goto": "Go to", "GOTO": "go to", "gotos": "go tos",
     "repos": "reepos", "Repos": "Reepos", "monorepo": "mono reepo", "Monorepo": "Mono reepo",
     "monorepos": "mono reepos", "Monorepos": "Mono reepos",
-    "rebase": "reebase", "rebased": "reebased", "rebases": "reebases", "rebasing": "reebasing",
-    "today's": "todays", "Today's": "Todays",
-    "Rebase": "Reebase", "Rebased": "Reebased", "Rebases": "Reebases", "Rebasing": "Reebasing",
+    "README": "read me", "npm": "N P M",
+    // Exact sounds, between slashes: also the stem of rebased, rebasing…
+    "rebase": "/ɹˈibˌAs/",
     "macOS": "mac O S", "GraphQL": "graph Q L", "OAuth": "oh auth",
     "kubectl": "cube control", "nginx": "engine X",
     "stdout": "standard out", "stderr": "standard error", "stdin": "standard in",
@@ -40,6 +40,21 @@ public enum Pronunciations {
     let mine = (try? String(contentsOf: file, encoding: .utf8)).map(parse) ?? [:]
     return defaults.merging(mine) { _, yours in yours }
   }
+}
+
+extension Pronunciations {
+  /// Respellings (`JSON = Jason`) and exact sounds (`rebase = /ɹˈibˌAs/`, as `murmur phonemes` prints them).
+  public static func split(_ all: [String: String]) -> (respell: [String: String], sounds: [String: String]) {
+    let isSound = { (v: String) in v.count > 2 && v.hasPrefix("/") && v.hasSuffix("/") }
+    return (all.filter { !isSound($0.value) }, all.filter { isSound($0.value) }.mapValues { String($0.dropFirst().dropLast()) })
+  }
+}
+
+/// Text as murmur says it: your respellings applied, cut into sentences, each with the exact sounds FluidAudio should
+/// use for its words (yours, and the ones misaki's rules work out).
+public func prepare(_ text: String, _ pronunciations: [String: String], _ lexicon: Lexicon) -> [(text: String, sounds: [String: String])] {
+  let (respell, mine) = Pronunciations.split(pronunciations)
+  return sentences(pronounce(text, respell)).map { ($0, lexicon.sounds(for: $0, mine: mine)) }
 }
 
 /// Rewrites whole words only, matching case exactly: "ID" changes, "id" and "IDEA" don't.

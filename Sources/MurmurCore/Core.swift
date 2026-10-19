@@ -65,6 +65,11 @@ public func sentences(_ text: String) -> [String] {
 }
 
 /// A stable cache key (FNV-1a 64) for one rendered sentence: same text, voice and speed, same audio.
+/// The exact sounds a sentence was rendered with, as part of its cache key: a new pronunciation re-renders it.
+public func soundsKey(_ sounds: [String: String]) -> String {
+  sounds.sorted { $0.key < $1.key }.map { "|\($0.key)=\($0.value)" }.joined()
+}
+
 public func cacheKey(_ text: String, voice: String, speed: Float) -> String {
   var hash: UInt64 = 0xcbf2_9ce4_8422_2325
   for byte in "\(voice)|\(speed)|\(text)".utf8 {

@@ -66,7 +66,42 @@ final class PronunciationTests: XCTestCase {
     XCTAssertEqual(pronounce("Todo: update the todos and the to-do list.", Pronunciations.defaults), "To do: update the to dos and the to do list.")
     XCTAssertEqual(pronounce("Run /goto, then GOTO.", Pronunciations.defaults), "Run /go to, then go to.")
     XCTAssertEqual(pronounce("Both repos, one monorepo.", Pronunciations.defaults), "Both reepos, one mono reepo.")
-    XCTAssertEqual(pronounce("Rebase, then keep rebasing.", Pronunciations.defaults), "Reebase, then keep reebasing.")
-    XCTAssertEqual(pronounce("Today’s fix: it’s today's.", Pronunciations.defaults), "Todays fix: it's todays.")
+  }
+}
+
+final class LexiconTests: XCTestCase {
+  let lexicon = Lexicon(
+    lower: ["today": "tədˈA", "base": "bˈAs", "fix": "fˈɪks", "stop": "stˈɑp", "wait": "wˈAt", "add": "ˈæd", "built": "bˈɪlt", "in": "ˈɪn", "apis": "ˈApɪs"],
+    cased: ["P": "pˈi", "R": "ˈɑɹ", "A": "ˈA", "I": "ˈI"])
+
+  func testMisakiEndings() {
+    let s = lexicon.sounds(for: "today's fixes, bases, stopped, waited, added, stopping, waiting")
+    XCTAssertEqual(s["today's"], "tədˈAz")
+    XCTAssertEqual(s["fixes"], "fˈɪksᵻz")
+    XCTAssertEqual(s["bases"], "bˈAsᵻz")
+    XCTAssertEqual(s["stopped"], "stˈɑpt")
+    XCTAssertEqual(s["waited"], "wˈAɾᵻd")
+    XCTAssertEqual(s["added"], "ˈædᵻd")
+    XCTAssertEqual(s["stopping"], "stˈɑpɪŋ")
+    XCTAssertEqual(s["waiting"], "wˈAɾɪŋ")
+  }
+
+  func testInitialismsCompoundsAndYours() {
+    let s = lexicon.sounds(for: "PRs, the PR's APIs built-in", mine: ["rebase": "ɹˈibˌAs"])
+    XCTAssertEqual(s["PRs"], "pˈi ˈɑɹz")
+    XCTAssertEqual(s["PR's"], "pˈi ˈɑɹz")
+    XCTAssertEqual(s["APIs"], "ˈA pˈi ˈIz")
+    XCTAssertEqual(s["built-in"], "bˈɪlt ˈɪn")
+    XCTAssertNil(s["today"])  // known words are left to Kokoro
+    let mine = lexicon.sounds(for: "Rebase, then rebased and rebasing", mine: ["rebase": "ɹˈibˌAs"])
+    XCTAssertEqual(mine["Rebase"], "ɹˈibˌAs")
+    XCTAssertEqual(mine["rebased"], "ɹˈibˌAst")
+    XCTAssertEqual(mine["rebasing"], "ɹˈibˌAsɪŋ")
+  }
+
+  func testSoundsInThePronunciationFile() {
+    let (respell, sounds) = Pronunciations.split(["JSON": "Jason", "rebase": "/ɹˈibˌAs/", "odd": "/"])
+    XCTAssertEqual(respell, ["JSON": "Jason", "odd": "/"])
+    XCTAssertEqual(sounds, ["rebase": "ɹˈibˌAs"])
   }
 }

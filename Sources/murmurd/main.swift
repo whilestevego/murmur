@@ -47,6 +47,9 @@ actor Speaker {
   private var tail: Task<Void, Never>?
   private var pending = 0
   private var lastActive = Date()
+  private lazy var lexicon = Lexicon.load()
+  /// The exact sounds last handed to Kokoro; setting them rebuilds its text frontend, so only on a change.
+  private var sounds: [String: String] = [:]
 
   init() {
     engine.attach(player)
@@ -92,13 +95,18 @@ actor Speaker {
         request.voice = Defaults.voice
       }
     }
-    for sentence in sentences(pronounce(request.text, Pronunciations.load())) {
+    for (sentence, sounds) in prepare(request.text, Pronunciations.load(), lexicon) {
       guard gen == generation else { return }
-      let key = cacheKey(sentence, voice: request.voice, speed: request.speed)
+      let key = cacheKey(sentence + soundsKey(sounds), voice: request.voice, speed: request.speed)
       var samples = PhraseCache.get(key)
       if samples == nil {
         do {
-          let out = try await loadedManager().synthesizeDetailed(text: sentence, voice: request.voice, speed: request.speed)
+          let manager = try await loadedManager()
+          if sounds != self.sounds {
+            await manager.setEnglishCustomLexicon(sounds)
+            self.sounds = sounds
+          }
+          let out = try await manager.synthesizeDetailed(text: sentence, voice: request.voice, speed: request.speed)
           samples = out.samples
           PhraseCache.put(key, out.samples)
         } catch {
@@ -145,7 +153,10 @@ if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
     do {
       let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
       try await m.initialize()
-      for sentence in sentences(pronounce(text, Pronunciations.load())) { print(try await m.phonemes(for: sentence)) }
+      for (sentence, sounds) in prepare(text, Pronunciations.load(), Lexicon.load()) {
+        await m.setEnglishCustomLexicon(sounds)
+        print(try await m.phonemes(for: sentence))
+      }
     } catch {
       FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
     }
