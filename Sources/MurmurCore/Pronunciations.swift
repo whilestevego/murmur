@@ -11,7 +11,7 @@ public enum Pronunciations {
     "goto": "go to", "Goto": "Go to", "GOTO": "go to", "gotos": "go tos",
     "repos": "reepos", "Repos": "Reepos", "monorepo": "mono reepo", "Monorepo": "Mono reepo",
     "monorepos": "mono reepos", "Monorepos": "Mono reepos",
-    "README": "read me", "npm": "N P M",
+    "README": "read me", "npm": "N P M", "ssn": "S S N", "tv": "T V",
     // Exact sounds, between slashes: also the stem of rebased, rebasing…
     "rebase": "/ɹˈibˌAs/",
     "macOS": "mac O S", "GraphQL": "graph Q L", "OAuth": "oh auth",
