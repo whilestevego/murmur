@@ -64,6 +64,10 @@ func daemonPath() -> String {
 /// Starts murmurd in its own session, detached from this terminal, logging to Paths.log.
 func spawnDaemon() {
   try? FileManager.default.createDirectory(at: Paths.caches, withIntermediateDirectories: true)
+  // A fresh log once it passes 1 MB: murmurd only appends to it.
+  if let size = try? Paths.log.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 1 << 20 {
+    try? FileManager.default.removeItem(at: Paths.log)
+  }
   var actions: posix_spawn_file_actions_t?
   posix_spawn_file_actions_init(&actions)
   posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
