@@ -27,7 +27,7 @@ public struct Lexicon {
 
   /// What FluidAudio's own lookup finds: the exact spelling, then the lower-cased one.
   public func entry(_ word: String) -> String? {
-    let key = String(word.lowercased().unicodeScalars.filter { CharacterSet.letters.union(.decimalDigits).contains($0) || $0 == "'" })
+    let key = String(word.lowercased().unicodeScalars.filter { Self.keyScalars.contains($0) })
     return cased[word] ?? cased[key] ?? lower[key]
   }
 
@@ -47,11 +47,13 @@ public struct Lexicon {
     return out
   }
 
+  private static let keyScalars = CharacterSet.letters.union(.decimalDigits).union(CharacterSet(charactersIn: "'"))
+  private static let wordRegex = try! NSRegularExpression(pattern: "[\\p{L}\\p{N}][\\p{L}\\p{N}-]*(?:'[\\p{L}\\p{N}]+)*")
+
   /// Words as FluidAudio splits them: letters and digits, with inner apostrophes and hyphens.
   static func words(_ text: String) -> [String] {
-    let regex = try! NSRegularExpression(pattern: "[\\p{L}\\p{N}][\\p{L}\\p{N}-]*(?:'[\\p{L}\\p{N}]+)*")
     let source = text as NSString
-    return regex.matches(in: text, range: NSRange(location: 0, length: source.length)).map { source.substring(with: $0.range) }
+    return wordRegex.matches(in: text, range: NSRange(location: 0, length: source.length)).map { source.substring(with: $0.range) }
   }
 
   /// `PRs`, `API's`: letters to spell, plus an ending.
