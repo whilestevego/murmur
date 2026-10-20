@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Text rewritten into words Kokoro reads well, before your respellings. FluidAudio already reads plain numbers (`26`,
 /// `3.14`, `13th`) but leaves the ambiguous forms alone, and those come out as "ex" or garbled. The rules follow NVIDIA
@@ -308,15 +309,7 @@ private func decades(_ text: String) -> String {
 /// 1994 → "19 94", 2012 → "20 12", 1906 → "19 oh 6", 1900 → "19 hundred"; 2000–2009 FluidAudio reads itself.
 /// ponytail: any 1100–2099 reads as a year unless a unit or a plural noun follows (2048 tokens); context would do better.
 private func years(_ text: String) -> String {
-  let named: [(String, String)] = Array(units.values) + Array(gluedUnits.values)
-  let unitWords: [String] = named.flatMap { [$0.0, $0.1] } + ["percent"]
-  let unitAlternation: String = Set(unitWords).map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: "|")
-  let notPlural = #"this|was|has|does|is|its|his|thus|yes|plus|less|unless|across|always|perhaps|as|us"#
-  let year = #"(?<![\d.,:$€£¥₩#/-])(1[1-9]\d{2}|20\d{2})(?![\d.,:/]\d|\d)"#
-  let noUnit = #"(?!(?:\h+to\h+\d+(?:\.\d+)?)?\h+(?:"# + unitAlternation + #")\b)"#
-  let noPlural = #"(?!\h+(?!(?:"# + notPlural + #")\b)[a-z]{2,}s\b)"#
-  let pattern = year + noUnit + noPlural
-  return replace(text, pattern) { g in
+  replace(text, yearPattern) { g in
     let y = g[1]
     let (hi, lo) = (y.prefix(2), y.suffix(2))
     if y.hasPrefix("200") || lo == "00" && hi == "20" { return nil }
@@ -324,6 +317,18 @@ private func years(_ text: String) -> String {
     return lo.hasPrefix("0") ? "\(hi) oh \(lo.dropFirst())" : "\(hi) \(lo)"
   }
 }
+
+/// A year, unless a unit or a plural noun follows it.
+private let yearPattern: String = {
+  let named: [(String, String)] = Array(units.values) + Array(gluedUnits.values)
+  let unitWords: [String] = named.flatMap { [$0.0, $0.1] } + ["percent"]
+  let unitAlternation: String = Set(unitWords).map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: "|")
+  let notPlural = #"this|was|has|does|is|its|his|thus|yes|plus|less|unless|across|always|perhaps|as|us"#
+  let year = #"(?<![\d.,:$€£¥₩#/-])(1[1-9]\d{2}|20\d{2})(?![\d.,:/]\d|\d)"#
+  let noUnit = #"(?!(?:\h+to\h+\d+(?:\.\d+)?)?\h+(?:"# + unitAlternation + #")\b)"#
+  let noPlural = #"(?!\h+(?!(?:"# + notPlural + #")\b)[a-z]{2,}s\b)"#
+  return year + noUnit + noPlural
+}()
 
 // MARK: - Measures and addresses
 
@@ -473,11 +478,19 @@ private let symbols: [(String, String)] = [
   ("≠", " not equal to "), ("!=", " not equal to "), ("==", " equals "), ("±", " plus or minus "), ("×", " times "),
 ]
 
+/// Each pattern compiled once, on first use.
+private let compiled = OSAllocatedUnfairLock(initialState: [String: NSRegularExpression]())
+
 /// Each match of `pattern` replaced by `f` of its groups (0 is the whole match, a missing group ""); nil keeps it.
 func replace(_ text: String, _ pattern: String, _ f: ([String]) -> String?) -> String {
   // Patterns use \h, never \s: a line break ends a sentence, so no rule may span one, and ^ and $ match at each line.
   // The patterns are constants, so a bad one fails every test.
-  let regex = try! NSRegularExpression(pattern: pattern, options: .anchorsMatchLines)
+  let regex = compiled.withLock { cache in
+    if let regex = cache[pattern] { return regex }
+    let regex = try! NSRegularExpression(pattern: pattern, options: .anchorsMatchLines)
+    cache[pattern] = regex
+    return regex
+  }
   let source = text as NSString
   var out = ""
   var last = 0
