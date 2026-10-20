@@ -148,30 +148,24 @@ actor Speaker {
 if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
   let text = CommandLine.arguments.dropFirst(2).joined(separator: " ")
   let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
-  let done = DispatchSemaphore(value: 0)
-  Task {
-    do {
-      let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
-      try await m.initialize()
-      for (sentence, sounds) in prepare(text, Pronunciations.load(), Lexicon.load()) {
-        await m.setEnglishCustomLexicon(sounds)
-        print(try await m.phonemes(for: sentence))
-      }
-    } catch {
-      FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
+  do {
+    let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
+    try await m.initialize()
+    for (sentence, sounds) in prepare(text, Pronunciations.load(), Lexicon.load()) {
+      await m.setEnglishCustomLexicon(sounds)
+      print(try await m.phonemes(for: sentence))
     }
-    done.signal()
+  } catch {
+    FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
   }
-  done.wait()
   exit(0)
 }
 
-// One murmurd per user: if another is already listening, leave it be.
-if let fd = connectSocket(Paths.socket.path) {
-  close(fd)
-  exit(0)
-}
 try? FileManager.default.createDirectory(at: Paths.caches, withIntermediateDirectories: true)
+// One murmurd per user: whoever holds the lock owns the socket, so only it may replace or remove it. The lock is
+// released when the process exits, however it exits.
+let lock = open(Paths.caches.appendingPathComponent("murmurd.lock").path, O_RDWR | O_CREAT, 0o600)
+guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else { exit(0) }
 guard let server = listenSocket(Paths.socket.path) else {
   log("can't listen on \(Paths.socket.path)")
   exit(1)
@@ -179,29 +173,35 @@ guard let server = listenSocket(Paths.socket.path) else {
 log("listening on \(Paths.socket.path)")
 
 let speaker = Speaker()
+// One reader hands requests to the speaker in the order they arrived; a task per request could reach it in any order.
+let (requests, arrived) = AsyncStream.makeStream(of: Request.self)
+Task {
+  for await request in requests { await speaker.handle(request) }
+}
 
 Thread.detachNewThread {
   while true {
     let client = accept(server, nil, nil)
     guard client >= 0 else { continue }
+    // murmur writes and closes at once; one that never closes mustn't hold up everyone after it.
+    var timeout = timeval(tv_sec: 1, tv_usec: 0)
+    setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
     let data = readAll(client)
     close(client)
     guard let request = try? JSONDecoder().decode(Request.self, from: data) else {
       log("ignored a malformed request")
       continue
     }
-    Task { await speaker.handle(request) }
+    arrived.yield(request)
   }
 }
 
 // Exit when idle: no model in memory, no audio device held. The next `murmur` restarts it.
-Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
-  Task {
-    if await speaker.isIdle {
-      log("idle, exiting")
-      unlink(Paths.socket.path)
-      exit(0)
-    }
+while true {
+  try? await Task.sleep(for: .seconds(30))
+  if await speaker.isIdle {
+    log("idle, exiting")
+    unlink(Paths.socket.path)
+    exit(0)
   }
 }
-RunLoop.main.run()
