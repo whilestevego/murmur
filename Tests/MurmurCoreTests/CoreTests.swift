@@ -71,34 +71,35 @@ final class PronunciationTests: XCTestCase {
 
 final class NormalizeTests: XCTestCase {
   // The rest is scored against NeMo's cases: make nemo.
+  static let techCases: [(String, String)] = [
+    ("It’s “done”.", "It's \"done\"."),
+    ("See https://github.com/whilestevego/murmur.", "See github dot com."),
+    ("Edit ~/src/app/main.swift now", "Edit main dot swift now"),
+    ("say/hooks/register.tsx", "register dot T S X"),
+    ("and/or client/server", "and or client slash server"),
+    ("plugin.json, process.env and e.g. this", "plugin dot jason, process dot env and e.g. this"),
+    ("v1.2.3, 0.15.5 and v2", "version 1 point 2 point 3, 0 point 15 point 5 and version 2"),
+    ("on 2026-10-19, July 4 or 17 may 2010", "on October 19th 20 26, July 4th or the 17th of May 20 10"),
+    ("we may 5 times", "we may 5 times"),
+    ("1,000 users, 2048 tokens, in 1994", "1000 users, 2048 tokens, in 19 94"),
+    ("$5, $1, $5.50, $0.05, $2M, $20/mo", "5 dollars, 1 dollar, 5 dollars 50 cents, 5 cents, 2 million dollars, 20 dollars per month"),
+    ("50% at 10:30, 3:05, 9:00 or 1:49 p.m.", "50 percent at 10 30, 3 oh 5, 9 o'clock or 1 49 PM"),
+    ("pages 10-20, -3", "pages 10 to 20, minus 3"),
+    ("200ms, 1 MB, 5s, 2x, 12kg/kg, 2°C", "200 milliseconds, 1 megabyte, 5 seconds, 2 x, 12 kilograms per kilogram, 2 degrees Celsius"),
+    ("H264 on x86, the 21st, ab9453", "H 264 on x 86, the 21st, ab 9 4 5 3"),
+    ("1/2, 2 1/2, 3/4, 24/7", "1 half, 2 and a half, 3 quarters, 24 7"),
+    ("the 1980s and '90s", "the 19 eighties and nineties"),
+    ("call +1 (123) 123-5678 or 123.123.0.40", "call plus 1, 1 2 3, 1 2 3, 5 6 7 8 or 1 2 3 dot 1 2 3 dot 0 dot 4 0"),
+    ("a.bc@gmail.com", "a dot bc at gmail dot com"),
+    ("1-2=5", "1 minus 2 equals 5"),
+    ("Chapter IV", "Chapter 4"),
+    ("a → b, n >= 3, x & y, ~5, PR #45", "a to b, n at least 3, x and y, about 5, PR number 45"),
+    ("user_id", "user id"),
+    ("one line\n-3 next", "one line\nminus 3 next"),
+  ]
+
   func testTechText() {
-    let cases: [(String, String)] = [
-      ("It’s “done”.", "It's \"done\"."),
-      ("See https://github.com/whilestevego/murmur.", "See github dot com."),
-      ("Edit ~/src/app/main.swift now", "Edit main dot swift now"),
-      ("say/hooks/register.tsx", "register dot T S X"),
-      ("and/or client/server", "and or client slash server"),
-      ("plugin.json, process.env and e.g. this", "plugin dot jason, process dot env and e.g. this"),
-      ("v1.2.3, 0.15.5 and v2", "version 1 point 2 point 3, 0 point 15 point 5 and version 2"),
-      ("on 2026-10-19, July 4 or 17 may 2010", "on October 19th 20 26, July 4th or the 17th of May 20 10"),
-      ("we may 5 times", "we may 5 times"),
-      ("1,000 users, 2048 tokens, in 1994", "1000 users, 2048 tokens, in 19 94"),
-      ("$5, $1, $5.50, $0.05, $2M, $20/mo", "5 dollars, 1 dollar, 5 dollars 50 cents, 5 cents, 2 million dollars, 20 dollars per month"),
-      ("50% at 10:30, 3:05, 9:00 or 1:49 p.m.", "50 percent at 10 30, 3 oh 5, 9 o'clock or 1 49 PM"),
-      ("pages 10-20, -3", "pages 10 to 20, minus 3"),
-      ("200ms, 1 MB, 5s, 2x, 12kg/kg, 2°C", "200 milliseconds, 1 megabyte, 5 seconds, 2 x, 12 kilograms per kilogram, 2 degrees Celsius"),
-      ("H264 on x86, the 21st, ab9453", "H 264 on x 86, the 21st, ab 9 4 5 3"),
-      ("1/2, 2 1/2, 3/4, 24/7", "1 half, 2 and a half, 3 quarters, 24 7"),
-      ("the 1980s and '90s", "the 19 eighties and nineties"),
-      ("call +1 (123) 123-5678 or 123.123.0.40", "call plus 1, 1 2 3, 1 2 3, 5 6 7 8 or 1 2 3 dot 1 2 3 dot 0 dot 4 0"),
-      ("a.bc@gmail.com", "a dot bc at gmail dot com"),
-      ("1-2=5", "1 minus 2 equals 5"),
-      ("Chapter IV", "Chapter 4"),
-      ("a → b, n >= 3, x & y, ~5, PR #45", "a to b, n at least 3, x and y, about 5, PR number 45"),
-      ("user_id", "user id"),
-      ("one line\n-3 next", "one line\nminus 3 next"),
-    ]
-    for (input, spoken) in cases { XCTAssertEqual(normalize(input), spoken, input) }
+    for (input, spoken) in Self.techCases { XCTAssertEqual(normalize(input), spoken, input) }
   }
 
   func testNamesSplitOnlyWhenUnknown() {
