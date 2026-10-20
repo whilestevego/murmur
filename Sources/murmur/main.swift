@@ -165,7 +165,7 @@ switch args.first {
 case "-h", "--help":
   print(usage(Style(fd: 1)))
 case "stop":
-  send(Request(stop: true))
+  send(.stop)
 case "phonemes":
   // The phonemizer lives with the model in murmurd; run it once there.
   let words = Array(args.dropFirst())
@@ -179,7 +179,7 @@ case "setup":
   let i = args.firstIndex(of: "--from")
   setup(from: i.flatMap { args.indices.contains($0 + 1) ? args[$0 + 1] : nil })
 default:
-  var request = Request()
+  var request = Speech()
   var words: [String] = []
   while !args.isEmpty {
     let arg = args.removeFirst()
@@ -207,5 +207,5 @@ default:
     FileHandle.standardError.write(Data((usage(Style(fd: 2)) + "\n").utf8))
     exit(2)
   }
-  send(request)
+  send(.speak(request))
 }

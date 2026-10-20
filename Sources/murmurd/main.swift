@@ -71,17 +71,18 @@ actor Speaker {
 
   func handle(_ request: Request) {
     lastActive = Date()
-    if request.stop || request.interrupt {
+    let speech: Speech? = if case .speak(let s) = request { s } else { nil }
+    if speech?.interrupt ?? true {
       generation += 1
       player.stop()  // fires the scheduled buffers' completions, so `pending` drains
     }
-    if request.stop { return }
+    guard let speech else { return }
     let gen = generation
-    let previous = request.interrupt ? nil : tail
+    let previous = speech.interrupt ? nil : tail
     speaking += 1
     tail = Task {
       await previous?.value
-      await self.speak(request, gen)
+      await self.speak(speech, gen)
       self.speaking -= 1
       self.stopIfDone()
     }
@@ -107,7 +108,7 @@ actor Speaker {
   }
 
   /// Renders sentence by sentence: the first plays while the next renders.
-  private func speak(_ request: Request, _ gen: Int) async {
+  private func speak(_ request: Speech, _ gen: Int) async {
     var request = request
     if !VoicePacks.isInstalled(request.voice) {
       // On-the-fly install: the first sentence waits for one ~510 KB download, later ones don't.
