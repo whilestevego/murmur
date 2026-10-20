@@ -48,6 +48,8 @@ actor Speaker {
   /// The latest render; the next one waits for it.
   private var rendering: Task<[Float], Error>?
   private var pending = 0
+  /// Requests speaking or queued to: while any are, the engine stays running.
+  private var speaking = 0
   private var lastActive = Date()
   private lazy var lexicon = Lexicon.load()
   /// The exact sounds last handed to Kokoro; setting them rebuilds its text frontend, so only on a change.
@@ -67,13 +69,16 @@ actor Speaker {
     if request.stop { return }
     let gen = generation
     let previous = request.interrupt ? nil : tail
+    speaking += 1
     tail = Task {
       await previous?.value
       await self.speak(request, gen)
+      self.speaking -= 1
+      self.stopIfDone()
     }
   }
 
-  var isIdle: Bool { pending == 0 && Date().timeIntervalSince(lastActive) > Defaults.idleExit }
+  var isIdle: Bool { pending == 0 && speaking == 0 && Date().timeIntervalSince(lastActive) > Defaults.idleExit }
 
   /// Every caller awaits the same load, so a request arriving mid-load doesn't start a second one.
   private func loadedManager() async throws -> KokoroAneManager {
@@ -155,11 +160,15 @@ actor Speaker {
     if !player.isPlaying { player.play() }
   }
 
-  /// Releases the audio device as soon as nothing is left to play.
   private func played() {
     pending = max(0, pending - 1)
     lastActive = Date()
-    if pending == 0 {
+    stopIfDone()
+  }
+
+  /// Releases the audio device once nothing is left to play or to render; between sentences the engine stays up.
+  private func stopIfDone() {
+    if pending == 0 && speaking == 0 {
       player.stop()
       engine.stop()
     }
