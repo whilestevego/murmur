@@ -13,6 +13,7 @@ nemo: build ## Score the text cleanup against NeMo's English normalization cases
 	python3 Tests/nemo/score.py
 
 install: build ## Install both commands into $(PREFIX)/bin (murmur finds murmurd beside it)
+	-pkill -x murmurd  # a running murmurd would keep speaking with the old code
 	install -d $(PREFIX)/bin
 	install -m 755 $(BIN)/murmur $(BIN)/murmurd $(PREFIX)/bin/
 	@echo "Installed to $(PREFIX)/bin. Next: murmur setup [--from <KokoroBundle>]"
