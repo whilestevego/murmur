@@ -148,21 +148,16 @@ actor Speaker {
 if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
   let text = CommandLine.arguments.dropFirst(2).joined(separator: " ")
   let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
-  let done = DispatchSemaphore(value: 0)
-  Task {
-    do {
-      let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
-      try await m.initialize()
-      for (sentence, sounds) in prepare(text, Pronunciations.load(), Lexicon.load()) {
-        await m.setEnglishCustomLexicon(sounds)
-        print(try await m.phonemes(for: sentence))
-      }
-    } catch {
-      FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
+  do {
+    let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
+    try await m.initialize()
+    for (sentence, sounds) in prepare(text, Pronunciations.load(), Lexicon.load()) {
+      await m.setEnglishCustomLexicon(sounds)
+      print(try await m.phonemes(for: sentence))
     }
-    done.signal()
+  } catch {
+    FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
   }
-  done.wait()
   exit(0)
 }
 
@@ -202,14 +197,11 @@ Thread.detachNewThread {
 }
 
 // Exit when idle: no model in memory, no audio device held. The next `murmur` restarts it.
-Task {
-  while true {
-    try? await Task.sleep(for: .seconds(30))
-    if await speaker.isIdle {
-      log("idle, exiting")
-      unlink(Paths.socket.path)
-      exit(0)
-    }
+while true {
+  try? await Task.sleep(for: .seconds(30))
+  if await speaker.isIdle {
+    log("idle, exiting")
+    unlink(Paths.socket.path)
+    exit(0)
   }
 }
-RunLoop.main.run()
