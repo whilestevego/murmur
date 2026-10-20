@@ -1,5 +1,65 @@
 import Foundation
 
+// MARK: - Numbers in text
+
+func fourOhOneK(_ text: String) -> String {
+  replace(text, #"\b401\([kK]\)"#) { _ in "4 oh 1 k" }
+}
+
+// 2Q22 → "the second quarter of 22"; 340 A.D → "3 40 AD"
+func quartersAndEras(_ text: String) -> String {
+  let t = replace(text, #"\b([1-4])Q(\d{2}|\d{4})\b"#) { "the \(ordinalWords(Int($0[1])!)) quarter of \($0[2])" }
+  return replace(t, #"\b(\d{1,4})\h?(A\.?D|B\.?C)\b\.?"#) { "\(houseNumber($0[1])) \($0[2].filter(\.isLetter))" }
+}
+
+// 1234567890123124 → digit by digit; 124,444,234,854,823,834,553 → words, past what FluidAudio counts to.
+func bigNumbers(_ text: String) -> String {
+  let t = replace(text, #"(?<![\d.,])\d{13,}(?![\d.,]\d|\d)"#) { spaced($0[0]) }
+  return replace(t, #"(?<![\d.,])\d{1,3}(?:,\d{3}){6,}(?![\d,])"#) { g in
+    let groups = g[0].split(separator: ",").compactMap { Int($0) }
+    let scales = ["", "thousand", "million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion"]
+    guard groups.count < scales.count else { return nil }
+    return groups.enumerated().compactMap { i, n in
+      n == 0 ? nil : "\(cardinalWords(n)) \(scales[groups.count - 1 - i])"
+    }.joined(separator: " ")
+  }
+}
+
+// 1,000 → 1000
+func thousandsCommas(_ text: String) -> String {
+  replace(text, #"(?<![\d.,])\d{1,3}(?:,\d{3})+(?:\.\d+)?(?![\d,])"#) { $0[0].replacingOccurrences(of: ",", with: "") }
+}
+
+// .25 → "point 2 5"; 50% → "50 percent"
+func pointsAndPercents(_ text: String) -> String {
+  let t = replace(text, #"(?<![\w.])\.(\d+)\b"#) { "point \(spaced($0[1]))" }
+  return replace(t, #"(\d)\h?%"#) { "\($0[1]) percent" }
+}
+
+// 1-2=5 → "1 minus 2 equals 5": operators read as math only around an equals sign. 2x3 → "2 by 3", 1+2 → "1 plus 2"
+func math(_ text: String) -> String {
+  var t = replace(text, #"[\w.]+(?:\h?[-+*/]\h?[\w.]+)*\h?=\h?[\w.]+(?:\h?[-+*/]\h?[\w.]+)*"#) { g in
+    let ops = ["-": " minus ", "+": " plus ", "*": " times ", "/": " over ", "=": " equals "]
+    return g[0].map { ops[String($0)] ?? String($0) }.joined().replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+  }
+  t = replace(t, #"(\d)\h?x\h?(?=\d)"#) { "\($0[1]) by " }
+  return replace(t, #"(?<=\d)\h?\+\h?(?=\d)"#) { _ in " plus " }
+}
+
+// 10–20 and 10-20 → "10 to 20"; -3 → "minus 3"
+func ranges(_ text: String) -> String {
+  var t = replace(text, #"(\d)\h?[–—]\h?(?=\d)"#) { "\($0[1]) to " }
+  t = replace(t, #"(?<![\w.-])(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)(?![\d-])"#) { "\($0[1]) to \($0[2])" }
+  return replace(t, #"(?<![\w)\]])-(?=\.?\d)"#) { _ in "minus " }
+}
+
+// Chapter IV → "Chapter 4"
+func romanChapters(_ text: String) -> String {
+  replace(text, #"(?i)\b(chapter|part|section|volume|vol\.|book|act|scene|phase|stage|level|world war|article|appendix|title)\h+([IVXLC]+)\b"#) { g in
+    roman(g[2]).map { "\(g[1]) \($0)" }
+  }
+}
+
 // MARK: - Money, fractions, decades, years
 
 func money(_ text: String) -> String {
@@ -47,7 +107,7 @@ func fractions(_ text: String) -> String {
   t = replace(t, #"(?i)(?<![\d/.:])(\d+)\h?/\h?(\d+)(?:st|nd|rd|th)?(?![\w/])"#) { g in
     g[0] == "24/7" ? "24 7" : fraction(g[1], g[2], mixed: false)
   }
-  return t
+  return replace(t, #"(?<=\d)/(?=\d)"#) { _ in " slash " }
 }
 
 private func fraction(_ n: String, _ d: String, mixed: Bool) -> String? {

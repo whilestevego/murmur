@@ -59,3 +59,7 @@ private func spokenAddress(_ s: String) -> String {
 private func spokenPath(_ path: String) -> String {
   path.isEmpty ? "" : " " + spokenAddress(path)
 }
+
+func fileLinks(_ text: String) -> String {
+  replace(text, #"(?i)\bfile://"#) { _ in "" }
+}
