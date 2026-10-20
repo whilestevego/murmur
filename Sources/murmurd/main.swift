@@ -15,7 +15,9 @@ enum PhraseCache {
   static func get(_ key: String) -> [Float]? {
     guard let data = try? Data(contentsOf: url(key)), !data.isEmpty else { return nil }
     try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url(key).path)
-    return data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+    return [Float](unsafeUninitializedCapacity: data.count / MemoryLayout<Float>.stride) { buffer, count in
+      count = data.copyBytes(to: buffer) / MemoryLayout<Float>.stride
+    }
   }
 
   static func put(_ key: String, _ samples: [Float]) {
@@ -37,7 +39,7 @@ enum PhraseCache {
 }
 
 actor Speaker {
-  private var manager: KokoroAneManager?
+  private var loading: Task<KokoroAneManager, Error>?
   private let engine = AVAudioEngine()
   private let player = AVAudioPlayerNode()
   private let format = AVAudioFormat(standardFormatWithSampleRate: Defaults.sampleRate, channels: 1)!
@@ -45,7 +47,11 @@ actor Speaker {
   private var generation = 0
   /// The latest request's loop; a queued request waits for it, an interrupting one doesn't.
   private var tail: Task<Void, Never>?
+  /// The latest render; the next one waits for it.
+  private var rendering: Task<[Float], Error>?
   private var pending = 0
+  /// Requests speaking or queued to: while any are, the engine stays running.
+  private var speaking = 0
   private var lastActive = Date()
   private lazy var lexicon = Lexicon.load()
   /// The exact sounds last handed to Kokoro; setting them rebuilds its text frontend, so only on a change.
@@ -65,23 +71,34 @@ actor Speaker {
     if request.stop { return }
     let gen = generation
     let previous = request.interrupt ? nil : tail
+    speaking += 1
     tail = Task {
       await previous?.value
       await self.speak(request, gen)
+      self.speaking -= 1
+      self.stopIfDone()
     }
   }
 
-  var isIdle: Bool { pending == 0 && Date().timeIntervalSince(lastActive) > Defaults.idleExit }
+  var isIdle: Bool { pending == 0 && speaking == 0 && Date().timeIntervalSince(lastActive) > Defaults.idleExit }
 
+  /// Every caller awaits the same load, so a request arriving mid-load doesn't start a second one.
   private func loadedManager() async throws -> KokoroAneManager {
-    if let manager { return manager }
-    let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
-    log("loading Kokoro (\(bundled ? Paths.models.path : "download from HuggingFace"))")
-    let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
-    try await m.initialize()
-    manager = m
-    log("Kokoro ready")
-    return m
+    let task = loading ?? Task {
+      let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
+      log("loading Kokoro (\(bundled ? Paths.models.path : "download from HuggingFace"))")
+      let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
+      try await m.initialize()
+      log("Kokoro ready")
+      return m
+    }
+    loading = task
+    do {
+      return try await task.value
+    } catch {
+      if loading == task { loading = nil }  // the next request retries, unless one already has
+      throw error
+    }
   }
 
   /// Renders sentence by sentence: the first plays while the next renders.
@@ -101,14 +118,9 @@ actor Speaker {
       var samples = PhraseCache.get(key)
       if samples == nil {
         do {
-          let manager = try await loadedManager()
-          if sounds != self.sounds {
-            await manager.setEnglishCustomLexicon(sounds)
-            self.sounds = sounds
-          }
-          let out = try await manager.synthesizeDetailed(text: sentence, voice: request.voice, speed: request.speed)
-          samples = out.samples
-          PhraseCache.put(key, out.samples)
+          let out = try await render(sentence, sounds, voice: request.voice, speed: request.speed)
+          samples = out
+          PhraseCache.put(key, out)
         } catch {
           log("synthesis failed: \(error)")
           return
@@ -117,6 +129,23 @@ actor Speaker {
       guard gen == generation, let samples, !samples.isEmpty else { return }
       play(samples)
     }
+  }
+
+  /// One render at a time, each after the last: the sounds set for a sentence are still set when it renders, even if
+  /// an interrupting request's loop is rendering too.
+  private func render(_ sentence: String, _ sounds: [String: String], voice: String, speed: Float) async throws -> [Float] {
+    let previous = rendering
+    let task = Task {
+      _ = try? await previous?.value  // a failed render doesn't hold up the next
+      let manager = try await self.loadedManager()
+      if sounds != self.sounds {
+        await manager.setEnglishCustomLexicon(sounds)
+        self.sounds = sounds
+      }
+      return try await manager.synthesizeDetailed(text: sentence, voice: voice, speed: speed).samples
+    }
+    rendering = task
+    return try await task.value
   }
 
   private func play(_ samples: [Float]) {
@@ -133,11 +162,15 @@ actor Speaker {
     if !player.isPlaying { player.play() }
   }
 
-  /// Releases the audio device as soon as nothing is left to play.
   private func played() {
     pending = max(0, pending - 1)
     lastActive = Date()
-    if pending == 0 {
+    stopIfDone()
+  }
+
+  /// Releases the audio device once nothing is left to play or to render; between sentences the engine stays up.
+  private func stopIfDone() {
+    if pending == 0 && speaking == 0 {
       player.stop()
       engine.stop()
     }
