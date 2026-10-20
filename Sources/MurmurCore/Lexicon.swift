@@ -16,11 +16,7 @@ public struct Lexicon {
 
   /// The list FluidAudio itself reads; empty when the model isn't installed, which only turns these rules off.
   public static func load() -> Lexicon {
-    let dirs = [
-      Paths.models.appendingPathComponent("kokoro"),
-      Paths.home.appendingPathComponent(".cache/fluidaudio/Models/kokoro"),
-    ]
-    for dir in dirs {
+    for dir in [Paths.models.appendingPathComponent("kokoro"), Paths.g2p] {
       guard let data = try? Data(contentsOf: dir.appendingPathComponent("us_lexicon_cache.json")),
         let json = try? JSONSerialization.jsonObject(with: data) as? [String: [String: [String]]]
       else { continue }

@@ -38,8 +38,16 @@ public enum Paths {
   public static let log = caches.appendingPathComponent("murmurd.log")
   /// The Kokoro CoreML bundle (the 7 .mlmodelc stages, vocab and voice packs).
   public static let models = home.appendingPathComponent("Library/Application Support/murmur/KokoroBundle")
+  /// The bundle's Neural Engine models, vocab and voice packs.
+  public static let bundleANE = models.appendingPathComponent("kokoro-82m-coreml/ANE")
+  /// Whether `murmur setup --from` installed a bundle; without one, FluidAudio downloads into `fluidCache`.
+  public static var bundleInstalled: Bool {
+    FileManager.default.fileExists(atPath: bundleANE.appendingPathComponent("vocab.json").path)
+  }
+  /// FluidAudio's own download cache.
+  public static let fluidCache = home.appendingPathComponent(".cache/fluidaudio/Models")
   /// FluidAudio reads its English pronunciation (G2P) assets from this fixed path on macOS.
-  public static let g2p = home.appendingPathComponent(".cache/fluidaudio/Models/kokoro")
+  public static let g2p = fluidCache.appendingPathComponent("kokoro")
 }
 
 /// Splits text into sentences so the first one plays while the rest are still being rendered.

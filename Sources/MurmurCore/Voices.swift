@@ -36,10 +36,7 @@ public enum VoicePacks {
 
   /// Where the engine reads packs: the installed bundle, else FluidAudio's own download cache.
   public static var directory: URL {
-    let bundled = Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE")
-    return FileManager.default.fileExists(atPath: bundled.appendingPathComponent("vocab.json").path)
-      ? bundled
-      : Paths.home.appendingPathComponent(".cache/fluidaudio/Models/kokoro-82m-coreml/ANE")
+    Paths.bundleInstalled ? Paths.bundleANE : Paths.fluidCache.appendingPathComponent("kokoro-82m-coreml/ANE")
   }
 
   public static func isInstalled(_ name: String) -> Bool {
