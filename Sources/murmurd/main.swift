@@ -37,7 +37,7 @@ enum PhraseCache {
 }
 
 actor Speaker {
-  private var manager: KokoroAneManager?
+  private var loading: Task<KokoroAneManager, Error>?
   private let engine = AVAudioEngine()
   private let player = AVAudioPlayerNode()
   private let format = AVAudioFormat(standardFormatWithSampleRate: Defaults.sampleRate, channels: 1)!
@@ -73,15 +73,23 @@ actor Speaker {
 
   var isIdle: Bool { pending == 0 && Date().timeIntervalSince(lastActive) > Defaults.idleExit }
 
+  /// Every caller awaits the same load, so a request arriving mid-load doesn't start a second one.
   private func loadedManager() async throws -> KokoroAneManager {
-    if let manager { return manager }
-    let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
-    log("loading Kokoro (\(bundled ? Paths.models.path : "download from HuggingFace"))")
-    let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
-    try await m.initialize()
-    manager = m
-    log("Kokoro ready")
-    return m
+    let task = loading ?? Task {
+      let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
+      log("loading Kokoro (\(bundled ? Paths.models.path : "download from HuggingFace"))")
+      let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
+      try await m.initialize()
+      log("Kokoro ready")
+      return m
+    }
+    loading = task
+    do {
+      return try await task.value
+    } catch {
+      if loading == task { loading = nil }  // the next request retries, unless one already has
+      throw error
+    }
   }
 
   /// Renders sentence by sentence: the first plays while the next renders.
