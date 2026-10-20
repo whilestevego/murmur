@@ -30,16 +30,17 @@ public func listenSocket(_ path: String) -> Int32? {
   let fd = socket(AF_UNIX, SOCK_STREAM, 0)
   guard fd >= 0 else { return nil }
   var addr = address(path)
+  let mask = umask(0o077)  // only this user can make murmurd speak, from the moment the socket exists
   let bound = withUnsafePointer(to: &addr) {
     $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
       bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) == 0
     }
   }
+  umask(mask)
   guard bound, listen(fd, 16) == 0 else {
     close(fd)
     return nil
   }
-  chmod(path, 0o600)  // only this user can make murmurd speak
   return fd
 }
 
