@@ -8,6 +8,13 @@ func log(_ message: String) {
   FileHandle.standardError.write(Data("\(Date()) \(message)\n".utf8))
 }
 
+/// Kokoro from the installed bundle, else downloaded from HuggingFace into FluidAudio's cache.
+func makeKokoro() async throws -> KokoroAneManager {
+  let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: Paths.bundleInstalled ? Paths.models : nil)
+  try await m.initialize()
+  return m
+}
+
 /// Phrase cache: one raw Float32 file per rendered sentence, least recently played evicted first.
 enum PhraseCache {
   static func url(_ key: String) -> URL { Paths.phrases.appendingPathComponent("\(key).f32") }
@@ -85,10 +92,8 @@ actor Speaker {
   /// Every caller awaits the same load, so a request arriving mid-load doesn't start a second one.
   private func loadedManager() async throws -> KokoroAneManager {
     let task = loading ?? Task {
-      let bundled = Paths.bundleInstalled
-      log("loading Kokoro (\(bundled ? Paths.models.path : "download from HuggingFace"))")
-      let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
-      try await m.initialize()
+      log("loading Kokoro (\(Paths.bundleInstalled ? Paths.models.path : "download from HuggingFace"))")
+      let m = try await makeKokoro()
       log("Kokoro ready")
       return m
     }
@@ -180,10 +185,8 @@ actor Speaker {
 // `murmurd --phonemes TEXT…`: print how the text will be pronounced, then exit (behind `murmur phonemes`).
 if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
   let text = CommandLine.arguments.dropFirst(2).joined(separator: " ")
-  let bundled = Paths.bundleInstalled
   do {
-    let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
-    try await m.initialize()
+    let m = try await makeKokoro()
     for (sentence, sounds) in prepare(text, Pronunciations.load(), Lexicon.load()) {
       await m.setEnglishCustomLexicon(sounds)
       print(try await m.phonemes(for: sentence))
