@@ -19,5 +19,5 @@ let package = Package(
     .target(name: "MurmurCore"),
     .testTarget(name: "MurmurCoreTests", dependencies: ["MurmurCore"]),
   ],
-  swiftLanguageModes: [.v5]
+  swiftLanguageModes: [.v6]
 )
