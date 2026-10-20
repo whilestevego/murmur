@@ -166,12 +166,11 @@ if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
   exit(0)
 }
 
-// One murmurd per user: if another is already listening, leave it be.
-if let fd = connectSocket(Paths.socket.path) {
-  close(fd)
-  exit(0)
-}
 try? FileManager.default.createDirectory(at: Paths.caches, withIntermediateDirectories: true)
+// One murmurd per user: whoever holds the lock owns the socket, so only it may replace or remove it. The lock is
+// released when the process exits, however it exits.
+let lock = open(Paths.caches.appendingPathComponent("murmurd.lock").path, O_RDWR | O_CREAT, 0o600)
+guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else { exit(0) }
 guard let server = listenSocket(Paths.socket.path) else {
   log("can't listen on \(Paths.socket.path)")
   exit(1)
