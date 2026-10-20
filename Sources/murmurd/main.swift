@@ -188,6 +188,9 @@ Thread.detachNewThread {
   while true {
     let client = accept(server, nil, nil)
     guard client >= 0 else { continue }
+    // murmur writes and closes at once; one that never closes mustn't hold up everyone after it.
+    var timeout = timeval(tv_sec: 1, tv_usec: 0)
+    setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
     let data = readAll(client)
     close(client)
     guard let request = try? JSONDecoder().decode(Request.self, from: data) else {
