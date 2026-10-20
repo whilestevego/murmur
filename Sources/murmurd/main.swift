@@ -15,7 +15,9 @@ enum PhraseCache {
   static func get(_ key: String) -> [Float]? {
     guard let data = try? Data(contentsOf: url(key)), !data.isEmpty else { return nil }
     try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url(key).path)
-    return data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+    return [Float](unsafeUninitializedCapacity: data.count / MemoryLayout<Float>.stride) { buffer, count in
+      count = data.copyBytes(to: buffer) / MemoryLayout<Float>.stride
+    }
   }
 
   static func put(_ key: String, _ samples: [Float]) {
