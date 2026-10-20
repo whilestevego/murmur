@@ -49,6 +49,7 @@ public func writeAll(_ fd: Int32, _ data: Data) {
     var offset = 0
     while offset < buf.count {
       let n = write(fd, buf.baseAddress! + offset, buf.count - offset)
+      if n < 0 && errno == EINTR { continue }
       if n <= 0 { return }
       offset += n
     }
@@ -60,6 +61,7 @@ public func readAll(_ fd: Int32, limit: Int = 1 << 20) -> Data {
   var chunk = [UInt8](repeating: 0, count: 64 * 1024)
   while data.count < limit {
     let n = read(fd, &chunk, chunk.count)
+    if n < 0 && errno == EINTR { continue }
     if n <= 0 { break }
     data.append(chunk, count: n)
   }
