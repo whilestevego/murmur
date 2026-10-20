@@ -64,6 +64,10 @@ func daemonPath() -> String {
 /// Starts murmurd in its own session, detached from this terminal, logging to Paths.log.
 func spawnDaemon() {
   try? FileManager.default.createDirectory(at: Paths.caches, withIntermediateDirectories: true)
+  // A fresh log once it passes 1 MB: murmurd only appends to it.
+  if let size = try? Paths.log.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 1 << 20 {
+    try? FileManager.default.removeItem(at: Paths.log)
+  }
   var actions: posix_spawn_file_actions_t?
   posix_spawn_file_actions_init(&actions)
   posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
@@ -134,7 +138,7 @@ func listVoices() {
     + (missing > 0 ? st.dim("Install with ") + st.accent("murmur voices install NAME…") + st.dim(" or ") + st.accent("--all") + st.dim(", or just use one.") : ""))
 }
 
-func installVoices(_ names: [String]) {
+func installVoices(_ names: [String]) async {
   let st = Style(fd: 1)
   let wanted = names == ["--all"] ? voiceCatalog.map(\.name) : names
   guard !wanted.isEmpty else { fail("name the voices to install, or --all (see: murmur voices)") }
@@ -143,21 +147,16 @@ func installVoices(_ names: [String]) {
   }
   let todo = wanted.filter { !VoicePacks.isInstalled($0) }
   if todo.isEmpty { return print("\(st.accent("✓")) already installed") }
-  let done = DispatchSemaphore(value: 0)
   var failed = false
-  Task {
-    for name in todo {
-      do {
-        try await VoicePacks.install(name)
-        print("\(st.accent("✓")) \(name)")
-      } catch {
-        failed = true
-        FileHandle.standardError.write(Data("\(Style(fd: 2).error("✗")) \(name): \(error)\n".utf8))
-      }
+  for name in todo {
+    do {
+      try await VoicePacks.install(name)
+      print("\(st.accent("✓")) \(name)")
+    } catch {
+      failed = true
+      FileHandle.standardError.write(Data("\(Style(fd: 2).error("✗")) \(name): \(error)\n".utf8))
     }
-    done.signal()
   }
-  done.wait()
   if failed { exit(1) }
 }
 
@@ -175,7 +174,7 @@ case "phonemes":
   execv(daemonPath(), argv)
   fail("couldn't run \(daemonPath())")
 case "voices":
-  if args.count > 1 && args[1] == "install" { installVoices(Array(args.dropFirst(2))) } else { listVoices() }
+  if args.count > 1 && args[1] == "install" { await installVoices(Array(args.dropFirst(2))) } else { listVoices() }
 case "setup":
   let i = args.firstIndex(of: "--from")
   setup(from: i.flatMap { args.indices.contains($0 + 1) ? args[$0 + 1] : nil })
