@@ -178,6 +178,11 @@ guard let server = listenSocket(Paths.socket.path) else {
 log("listening on \(Paths.socket.path)")
 
 let speaker = Speaker()
+// One reader hands requests to the speaker in the order they arrived; a task per request could reach it in any order.
+let (requests, arrived) = AsyncStream.makeStream(of: Request.self)
+Task {
+  for await request in requests { await speaker.handle(request) }
+}
 
 Thread.detachNewThread {
   while true {
@@ -189,7 +194,7 @@ Thread.detachNewThread {
       log("ignored a malformed request")
       continue
     }
-    Task { await speaker.handle(request) }
+    arrived.yield(request)
   }
 }
 
