@@ -85,7 +85,7 @@ actor Speaker {
   /// Every caller awaits the same load, so a request arriving mid-load doesn't start a second one.
   private func loadedManager() async throws -> KokoroAneManager {
     let task = loading ?? Task {
-      let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
+      let bundled = Paths.bundleInstalled
       log("loading Kokoro (\(bundled ? Paths.models.path : "download from HuggingFace"))")
       let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
       try await m.initialize()
@@ -180,7 +180,7 @@ actor Speaker {
 // `murmurd --phonemes TEXT…`: print how the text will be pronounced, then exit (behind `murmur phonemes`).
 if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
   let text = CommandLine.arguments.dropFirst(2).joined(separator: " ")
-  let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
+  let bundled = Paths.bundleInstalled
   do {
     let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
     try await m.initialize()
