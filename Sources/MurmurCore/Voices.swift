@@ -1,6 +1,6 @@
 import Foundation
 
-public struct VoiceInfo: Equatable {
+public struct VoiceInfo: Equatable, Sendable {
   public let name: String
   public let group: String
   /// Kokoro's own "Overall Grade" for the voice (A to F): how good and how plentiful its training audio was.

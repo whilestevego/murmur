@@ -4,7 +4,7 @@ import Foundation
 /// it lacks: a known word plus -s, -'s, -ed or -ing, and hyphenated compounds. FluidAudio sends every word missing from
 /// the list to a small neural guesser, which misreads some (today's → "TOE-days"). murmur works those words out first
 /// and hands FluidAudio their exact sounds.
-public struct Lexicon {
+public struct Lexicon: Sendable {
   /// Lower-cased word → sounds, and exact spelling → sounds (names, abbreviations, single letters).
   public let lower: [String: String]
   public let cased: [String: String]
