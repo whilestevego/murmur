@@ -33,7 +33,7 @@ public func normalize(_ text: String, knows: (String) -> Bool = { _ in false }) 
   }
   // 2Q22 → "the second quarter of 22"; 340 A.D → "3 40 AD"
   t = replace(t, #"\b([1-4])Q(\d{2}|\d{4})\b"#) { "the \(ordinalWords(Int($0[1])!)) quarter of \($0[2])" }
-  t = replace(t, #"\b(\d{1,4})\s?(A\.?D|B\.?C)\b\.?"#) { "\(houseNumber($0[1])) \($0[2].filter(\.isLetter))" }
+  t = replace(t, #"\b(\d{1,4})\h?(A\.?D|B\.?C)\b\.?"#) { "\(houseNumber($0[1])) \($0[2].filter(\.isLetter))" }
   // 1234567890123124 → digit by digit; 124,444,234,854,823,834,553 → words, past what FluidAudio counts to.
   t = replace(t, #"(?<![\d.,])\d{13,}(?![\d.,]\d|\d)"#) { spaced($0[0]) }
   t = replace(t, #"(?<![\d.,])\d{1,3}(?:,\d{3}){6,}(?![\d,])"#) { g in
@@ -49,21 +49,21 @@ public func normalize(_ text: String, knows: (String) -> Bool = { _ in false }) 
   t = money(t)
   // .25 → "point 2 5"
   t = replace(t, #"(?<![\w.])\.(\d+)\b"#) { "point \(spaced($0[1]))" }
-  t = replace(t, #"(\d)\s?%"#) { "\($0[1]) percent" }
+  t = replace(t, #"(\d)\h?%"#) { "\($0[1]) percent" }
   t = fractions(t)
   t = replace(t, #"(?<=\d)/(?=\d)"#) { _ in " slash " }
   t = decades(t)
 
   for (symbol, words) in symbols { t = t.replacingOccurrences(of: symbol, with: words) }
   // 1-2=5 → "1 minus 2 equals 5": operators read as math only around an equals sign.
-  t = replace(t, #"[\w.]+(?:\s?[-+*/]\s?[\w.]+)*\s?=\s?[\w.]+(?:\s?[-+*/]\s?[\w.]+)*"#) { g in
+  t = replace(t, #"[\w.]+(?:\h?[-+*/]\h?[\w.]+)*\h?=\h?[\w.]+(?:\h?[-+*/]\h?[\w.]+)*"#) { g in
     let ops = ["-": " minus ", "+": " plus ", "*": " times ", "/": " over ", "=": " equals "]
     return g[0].map { ops[String($0)] ?? String($0) }.joined().replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
   }
-  t = replace(t, #"(\d)\s?x\s?(?=\d)"#) { "\($0[1]) by " }
-  t = replace(t, #"(?<=\d)\s?\+\s?(?=\d)"#) { _ in " plus " }
+  t = replace(t, #"(\d)\h?x\h?(?=\d)"#) { "\($0[1]) by " }
+  t = replace(t, #"(?<=\d)\h?\+\h?(?=\d)"#) { _ in " plus " }
   // 10–20 and 10-20 → "10 to 20"; -3 → "minus 3"
-  t = replace(t, #"(\d)\s?[–—]\s?(?=\d)"#) { "\($0[1]) to " }
+  t = replace(t, #"(\d)\h?[–—]\h?(?=\d)"#) { "\($0[1]) to " }
   t = replace(t, #"(?<![\w.-])(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)(?![\d-])"#) { "\($0[1]) to \($0[2])" }
   t = replace(t, #"(?<![\w)\]])-(?=\.?\d)"#) { _ in "minus " }
   t = measures(t)
@@ -79,21 +79,21 @@ public func normalize(_ text: String, knows: (String) -> Bool = { _ in false }) 
     return replace(split, #"\d{4,}"#) { $0[0].hasSuffix("00") ? nil : spaced($0[0]) }  // ab9453, a code: digit by digit; t2000 stays a number
   }
   // Chapter IV → "Chapter 4"
-  t = replace(t, #"(?i)\b(chapter|part|section|volume|vol\.|book|act|scene|phase|stage|level|world war|article|appendix|title)\s+([IVXLC]+)\b"#) { g in
+  t = replace(t, #"(?i)\b(chapter|part|section|volume|vol\.|book|act|scene|phase|stage|level|world war|article|appendix|title)\h+([IVXLC]+)\b"#) { g in
     roman(g[2]).map { "\(g[1]) \($0)" }
   }
 
   // Symbols said as words when they stand alone.
   t = replace(t, #"\+\+"#) { _ in " plus plus" }
-  t = replace(t, #"(?<=\s)&(?=\s)"#) { _ in "and" }
+  t = replace(t, #"(?<=\h)&(?=\h)"#) { _ in "and" }
   t = replace(t, #"~(?=\d)"#) { _ in "about " }
   t = replace(t, #"#(\d+)"#) { "number \($0[1])" }
-  t = replace(t, #"(?<=\d)\s?\*\s?(?=\d)"#) { _ in " times " }
+  t = replace(t, #"(?<=\d)\h?\*\h?(?=\d)"#) { _ in " times " }
   let names = ["$": "dollar", "€": "euro", "£": "pound", "¥": "yen", "₩": "won", "%": "percent", "#": "hash", "@": "at", "&": "and"]
   t = replace(t, #"[$€£¥₩%#@&]"#) { g in names[g[0]].map { " \($0) " } }
   t = replace(t, #"(?<!\S)/(?!\w)"#) { _ in " slash " }
   // upgrade/update → "upgrade slash update"; and/or → "and or"
-  t = replace(t, #"\b([A-Za-z]+)\s?/\s?(?=[A-Za-z])"#) { g in g[1].lowercased() == "and" ? "and " : "\(g[1]) slash " }
+  t = replace(t, #"\b([A-Za-z]+)\h?/\h?(?=[A-Za-z])"#) { g in g[1].lowercased() == "and" ? "and " : "\(g[1]) slash " }
 
   // snake_case → "snake case"; setVoiceName → "set Voice Name", unless the whole name has a pronunciation.
   t = replace(t, #"(?<=[A-Za-z0-9])_+(?=[A-Za-z0-9])"#) { _ in " " }
@@ -113,7 +113,7 @@ private func electronic(_ text: String) -> String {
     "\(spokenAddress(g[1])) at \(spokenDomain(g[2]))\(spokenPath(g[3]))"
   }
   // https://www.example.com/a/b → "WWW dot example dot com": the host only, since a whole link is noise aloud.
-  t = replace(t, #"(?i)\b(?:https?|ftp)://([\w.-]+?)(?::\d+)?(?:[/?#][^\s]*?)?(?=[.,;:!?)\]]*(?:\s|$))"#) { spokenDomain($0[1]) }
+  t = replace(t, #"(?i)\b(?:https?|ftp)://([\w.-]+?)(?::\d+)?(?:[/?#][^\h]*?)?(?=[.,;:!?)\]]*(?:\h|$))"#) { spokenDomain($0[1]) }
   // example.com/12-sm → "example dot com slash 1 2 dash sm"
   t = replace(t, #"(?<![\w@./-])((?:[\w-]+\.)+(?i:com|org|net|edu|gov|io|ai|dev|app|co|uk|de|fr|it|sm|us|ca|jp|au|info|biz))\b((?:/[\w.-]*)*)"#) { g in
     "\(spokenDomain(g[1]))\(spokenPath(g[2]))"
@@ -121,7 +121,7 @@ private func electronic(_ text: String) -> String {
   // 123.123.0.40 → "1 2 3 dot 1 2 3 dot 0 dot 4 0"
   t = replace(t, #"\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b"#) { g in g[1...4].map(spaced).joined(separator: " dot ") }
   // +1 (123) 123-5678 → "plus 1, 1 2 3, 1 2 3, 5 6 7 8"; 111-11-1111 likewise.
-  t = replace(t, #"(?<![\w+])(?:\+(\d{1,3})[\s-]?)?(?:\((\d{3})\)|(\d{3}))[\s.-]?(\d{3})[\s.-](\d{4})((?:-\d+)?)(?![\w-])"#) { g in
+  t = replace(t, #"(?<![\w+])(?:\+(\d{1,3})[\h-]?)?(?:\((\d{3})\)|(\d{3}))[\h.-]?(\d{3})[\h.-](\d{4})((?:-\d+)?)(?![\w-])"#) { g in
     let parts = [g[2] + g[3], g[4], g[5]] + (g[6].isEmpty ? [] : [String(g[6].dropFirst())])
     return (g[1].isEmpty ? "" : "plus \(g[1]), ") + parts.map(spaced).joined(separator: ", ")
   }
@@ -178,14 +178,14 @@ private func dates(_ text: String) -> String {
   }
   t = replace(t, #"(?<![\d/])(\d{4})/(\d{1,2})/(\d{1,2})(?![\d/])"#) { g in date(month: g[2], day: g[3], year: g[1]) }
   // July 25 2012, SEPT. 15 → "July 25th 2012", "September 15th"
-  t = replace(t, "(?i)\\b\(monthPattern)\\.?(?:\\s+|-)(\\d{1,2})(?:st|nd|rd|th)?\\b(?![:.]\\d)(?:(?:,?\\s+|-)(\\d{4})\\b)?") { g in
+  t = replace(t, "(?i)\\b\(monthPattern)\\.?(?:\\h+|-)(\\d{1,2})(?:st|nd|rd|th)?\\b(?![:.]\\d)(?:(?:,?\\h+|-)(\\d{4})\\b)?") { g in
     // "we may 5 times": lower-case may and march are verbs unless a year follows.
     if ["may", "march"].contains(g[1]) && g[3].isEmpty { return nil }
     guard let m = month(g[1]), let d = Int(g[2]), (1...31).contains(d) else { return nil }
     return "\(m) \(d)\(ordinalSuffix(d))" + (g[3].isEmpty ? "" : " \(g[3])")
   }
   // 25 july 2012, the 26th May → "the 25th of July 2012"
-  t = replace(t, "(?i)\\b(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?\(monthPattern)\\b\\.?(?:,?\\s+(\\d{4})\\b)?") { g in
+  t = replace(t, "(?i)\\b(?:the\\h+)?(\\d{1,2})(?:st|nd|rd|th)?\\h+(?:of\\h+)?\(monthPattern)\\b\\.?(?:,?\\h+(\\d{4})\\b)?") { g in
     guard let m = month(g[2]), let d = Int(g[1]), (1...31).contains(d) else { return nil }
     return "the \(d)\(ordinalSuffix(d)) of \(m)" + (g[3].isEmpty ? "" : " \(g[3])")
   }
@@ -208,19 +208,19 @@ private func date(month m: String, day d: String, year y: String) -> String? {
 private func times(_ text: String) -> String {
   var t = text
   // 1:01:01 → "1 hour 1 minute and 1 second"
-  t = replace(t, #"(?i)(?<![\d:])(\d{1,2}):([0-5]\d):([0-5]\d)(?![\d:])(\s*[ap]\.?m\b\.?)?"#) { g in
+  t = replace(t, #"(?i)(?<![\d:])(\d{1,2}):([0-5]\d):([0-5]\d)(?![\d:])(\h*[ap]\.?m\b\.?)?"#) { g in
     let (h, m, s) = (Int(g[1])!, Int(g[2])!, Int(g[3])!)
     let said = "\(h) \(h == 1 ? "hour" : "hours") \(m) \(m == 1 ? "minute" : "minutes") and \(s) \(s == 1 ? "second" : "seconds")"
     return said + (g[4].isEmpty ? "" : " \(meridiem(g[4]))")
   }
   // 1:59 p.m., 01:00 am, 2pm → "1 59 PM", "1 AM", "2 PM"
-  t = replace(t, #"(?i)(?<![\d:.])(\d{1,2})(?:[:.]([0-5]\d))?\s?([ap])\.?m\b\.?"#) { g in
+  t = replace(t, #"(?i)(?<![\d:.])(\d{1,2})(?:[:.]([0-5]\d))?\h?([ap])\.?m\b\.?"#) { g in
     guard let h = Int(g[1]), (0...12).contains(h) else { return nil }
     return "\(h)\(g[2].isEmpty || g[2] == "00" ? "" : " \(minutes(g[2]))") \(meridiem(g[3]))"
   }
   // 1:59 PM e.s.t → "1 59 PM EST"; 5 PM-7 PM → "5 PM to 7 PM"
-  t = replace(t, #"(?i)\b(AM|PM)\s*([ecmp])\.?([sd])\.?t\b\.?"#) { "\($0[1]) \($0[2].uppercased())\($0[3].uppercased())T" }
-  t = replace(t, #"\b(AM|PM)\s?[-–]\s?(?=\d)"#) { "\($0[1]) to " }
+  t = replace(t, #"(?i)\b(AM|PM)\h*([ecmp])\.?([sd])\.?t\b\.?"#) { "\($0[1]) \($0[2].uppercased())\($0[3].uppercased())T" }
+  t = replace(t, #"\b(AM|PM)\h?[-–]\h?(?=\d)"#) { "\($0[1]) to " }
   // 10:30 → "10 30", 3:05 → "3 oh 5", 09:00 → "9 o'clock"
   t = replace(t, #"(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])"#) { g in
     let h = Int(g[1])!
@@ -235,9 +235,9 @@ private func minutes(_ m: String) -> String { m.hasPrefix("0") ? "oh \(m.dropFir
 // MARK: - Money, fractions, decades, years
 
 private func money(_ text: String) -> String {
-  var t = replace(text, #"(?<=\d)\s?-\s?(?=(?:US\$|[$€£¥₩])\d)"#) { _ in " to " }
+  var t = replace(text, #"(?<=\d)\h?-\h?(?=(?:US\$|[$€£¥₩])\d)"#) { _ in " to " }
   // $5 → "5 dollars", $20.50 → "20 dollars 50 cents", $2.5 million → "2.5 million dollars", $20/mo → "… per month"
-  let pattern = #"(US\$|[$€£¥₩])\s?(\d*)(?:\.(\d+))?(?:\s?(thousand|million|billion|trillion|bn|mn|[kKmMbB])\b)?(?:/(mo|month|yr|year|wk|week|d|day|hr|hour|h)\b)?"#
+  let pattern = #"(US\$|[$€£¥₩])\h?(\d*)(?:\.(\d+))?(?:\h?(thousand|million|billion|trillion|bn|mn|[kKmMbB])\b)?(?:/(mo|month|yr|year|wk|week|d|day|hr|hour|h)\b)?"#
   t = replace(t, pattern) { g in
     guard !(g[2] + g[3]).isEmpty else { return nil }
     let c = currencies[g[1]]!
@@ -272,11 +272,11 @@ private let periods = ["mo": "month", "month": "month", "yr": "year", "year": "y
 private func fractions(_ text: String) -> String {
   var t = text
   // 2 1/2 → "2 and a half"
-  t = replace(t, #"(?i)(?<![\d/.])(\d+)\s+(\d+)/(\d+)(?:st|nd|rd|th)?(?![\w/])"#) { g in
+  t = replace(t, #"(?i)(?<![\d/.])(\d+)\h+(\d+)/(\d+)(?:st|nd|rd|th)?(?![\w/])"#) { g in
     fraction(g[2], g[3], mixed: true).map { "\(g[1]) and \($0)" }
   }
   // 1/4 → "1 quarter", 31/32 → "31 thirty seconds"; 24/7 stays.
-  t = replace(t, #"(?i)(?<![\d/.:])(\d+)\s?/\s?(\d+)(?:st|nd|rd|th)?(?![\w/])"#) { g in
+  t = replace(t, #"(?i)(?<![\d/.:])(\d+)\h?/\h?(\d+)(?:st|nd|rd|th)?(?![\w/])"#) { g in
     g[0] == "24/7" ? "24 7" : fraction(g[1], g[2], mixed: false)
   }
   return t
@@ -295,8 +295,8 @@ private func fraction(_ n: String, _ d: String, mixed: Bool) -> String? {
 
 private func decades(_ text: String) -> String {
   // 1960s-80s → "1960s to 80s"; 1980s → "19 eighties", '80s → "eighties", 2000s → "two thousands"
-  let t = replace(text, #"(?<=\ds)\s?[-–]\s?(?=(?:\d{2}|\d{4})s\b)"#) { _ in " to " }
-  return replace(t, #"(?<![\w.])(?:'|(1\d|20))?(\d)0(?:s|(?<=\d{4})\s+s)\b"#) { g in
+  let t = replace(text, #"(?<=\ds)\h?[-–]\h?(?=(?:\d{2}|\d{4})s\b)"#) { _ in " to " }
+  return replace(t, #"(?<![\w.])(?:'|(1\d|20))?(\d)0(?:s|(?<=\d{4})\h+s)\b"#) { g in
     let tens = ["hundreds", "tens", "twenties", "thirties", "forties", "fifties", "sixties", "seventies", "eighties", "nineties"]
     let d = Int(g[2])!
     if g[1] == "20" && d == 0 { return "two thousands" }
@@ -313,8 +313,8 @@ private func years(_ text: String) -> String {
   let unitAlternation: String = Set(unitWords).map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: "|")
   let notPlural = #"this|was|has|does|is|its|his|thus|yes|plus|less|unless|across|always|perhaps|as|us"#
   let year = #"(?<![\d.,:$€£¥₩#/-])(1[1-9]\d{2}|20\d{2})(?![\d.,:/]\d|\d)"#
-  let noUnit = #"(?!(?:\s+to\s+\d+(?:\.\d+)?)?\s+(?:"# + unitAlternation + #")\b)"#
-  let noPlural = #"(?!\s+(?!(?:"# + notPlural + #")\b)[a-z]{2,}s\b)"#
+  let noUnit = #"(?!(?:\h+to\h+\d+(?:\.\d+)?)?\h+(?:"# + unitAlternation + #")\b)"#
+  let noPlural = #"(?!\h+(?!(?:"# + notPlural + #")\b)[a-z]{2,}s\b)"#
   let pattern = year + noUnit + noPlural
   return replace(text, pattern) { g in
     let y = g[1]
@@ -332,25 +332,25 @@ private func measures(_ text: String) -> String {
   let glued = gluedUnits.keys.joined(separator: "|")
   var t = text
   // 2°C → "2 degrees Celsius"
-  t = replace(t, #"(\d+(?:\.\d+)?)\s?[°º]\s?([CF])?\b"#) { g in
+  t = replace(t, #"(\d+(?:\.\d+)?)\h?[°º]\h?([CF])?\b"#) { g in
     let deg = g[1] == "1" ? "degree" : "degrees"
     return "\(g[1]) \(deg)" + (g[2].isEmpty ? "" : g[2] == "C" ? " Celsius" : " Fahrenheit")
   }
   // 5 m2, 41459 km³ → "5 square meters", "41459 cubic kilometers"
-  t = replace(t, #"(\d+(?:\.\d+)?)\s?(km|cm|mm|m|ft)(2|²|3|³)(?!\w)"#) { g in
+  t = replace(t, #"(\d+(?:\.\d+)?)\h?(km|cm|mm|m|ft)(2|²|3|³)(?!\w)"#) { g in
     let name = ["km": "kilometers", "cm": "centimeters", "mm": "millimeters", "m": "meters", "ft": "feet"][g[2]]!
     return "\(g[1]) \("2²".contains(g[3]) ? "square" : "cubic") \(name)"
   }
   // 12kg/kg, 60 km/h → "per kilogram", "per hour"
-  t = replace(t, "(?<=[\\w])\\s?/\\s?(\(keys)|\(glued))(?![\\w/])") { g in
+  t = replace(t, "(?<=[\\w])\\h?/\\h?(\(keys)|\(glued))(?![\\w/])") { g in
     " per \((units[g[1]] ?? gluedUnits[g[1]])!.0)"
   }
   // 200ms → "200 milliseconds", 100 million kg → "100 million kilograms", 2 and a half lbs → "… pounds"
-  t = replace(t, "(?<![\\w.])(\\d+(?:\\.\\d+)?)((?:\\s(?:thousand|million|billion|trillion))?)(?:\\s?(\(keys))|(\(glued)))(?![\\w/])") { g in
+  t = replace(t, "(?<![\\w.])(\\d+(?:\\.\\d+)?)((?:\\h(?:thousand|million|billion|trillion))?)(?:\\h?(\(keys))|(\(glued)))(?![\\w/])") { g in
     let unit = g[3].isEmpty ? gluedUnits[g[4]]! : units[g[3]]!
     return "\(g[1])\(g[2]) \(g[1] == "1" && g[2].isEmpty ? unit.0 : unit.1)"
   }
-  t = replace(t, "\\b(half|halves|quarters?|thirds?)\\s+(\(keys))(?![\\w/])") { "\($0[1]) \(units[$0[2]]!.1)" }
+  t = replace(t, "\\b(half|halves|quarters?|thirds?)\\h+(\(keys))(?![\\w/])") { "\($0[1]) \(units[$0[2]]!.1)" }
   return t
 }
 
@@ -380,12 +380,12 @@ private func addresses(_ text: String) -> String {
     "Expy": "Expressway", "Hwy": "Highway", "Pkwy": "Parkway", "Pl": "Place"]
   let way = ["N": "North", "S": "South", "E": "East", "W": "West"]
   // 1428 Elm St, 708 N 1st St → "14 28 Elm Street", "7 0 8 North 1st Street"
-  var t = replace(text, #"\b(\d{1,5})\s+(?:([NSEW])\.?\s+)?((?:(?:[A-Z][a-z]+|\d+(?:st|nd|rd|th))\s+){1,3})(?i:(st|ave|rd|ct|blvd|dr|ln|expy|hwy|pkwy|pl))\b"#) { g in
+  var t = replace(text, #"\b(\d{1,5})\h+(?:([NSEW])\.?\h+)?((?:(?:[A-Z][a-z]+|\d+(?:st|nd|rd|th))\h+){1,3})(?i:(st|ave|rd|ct|blvd|dr|ln|expy|hwy|pkwy|pl))\b"#) { g in
     let kind = street.first { $0.key.lowercased() == g[4].lowercased() }!.value
     return "\(houseNumber(g[1])) \(g[2].isEmpty ? "" : way[g[2]]! + " ")\(g[3])\(kind)"
   }
   // …Street, Santa Clara, CA 95051 → "…, California 9 5 0 5 1"
-  t = replace(t, #"((?:Street|Avenue|Road|Court|Boulevard|Drive|Lane|Expressway|Highway|Parkway|Place)(?:,\s+[A-Z][a-z]+(?:\s[A-Z][a-z]+)*)?),\s+([A-Z]{2})\b(,?\s+\d{5})?"#) { g in
+  t = replace(t, #"((?:Street|Avenue|Road|Court|Boulevard|Drive|Lane|Expressway|Highway|Parkway|Place)(?:,\h+[A-Z][a-z]+(?:\h[A-Z][a-z]+)*)?),\h+([A-Z]{2})\b(,?\h+\d{5})?"#) { g in
     guard let state = states[g[2]] else { return nil }
     return "\(g[1]), \(state)" + (g[3].isEmpty ? "" : (g[3].hasPrefix(",") ? "," : "") + " " + spaced(g[3].filter(\.isNumber)))
   }
@@ -475,8 +475,9 @@ private let symbols: [(String, String)] = [
 
 /// Each match of `pattern` replaced by `f` of its groups (0 is the whole match, a missing group ""); nil keeps it.
 func replace(_ text: String, _ pattern: String, _ f: ([String]) -> String?) -> String {
-  // \s never spans lines here: a line break ends a sentence. The patterns are constants, so a bad one fails every test.
-  let regex = try! NSRegularExpression(pattern: pattern.replacingOccurrences(of: #"\s"#, with: #"\h"#), options: .anchorsMatchLines)
+  // Patterns use \h, never \s: a line break ends a sentence, so no rule may span one, and ^ and $ match at each line.
+  // The patterns are constants, so a bad one fails every test.
+  let regex = try! NSRegularExpression(pattern: pattern, options: .anchorsMatchLines)
   let source = text as NSString
   var out = ""
   var last = 0
