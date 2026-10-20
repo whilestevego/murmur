@@ -1,21 +1,25 @@
 import Foundation
 
 /// One request from `murmur` to `murmurd`: a single JSON line per connection.
-public struct Request: Codable, Equatable {
+public enum Request: Codable, Equatable, Sendable {
+  case speak(Speech)
+  /// Stop speaking and drop anything queued.
+  case stop
+}
+
+/// Text to speak, and how.
+public struct Speech: Codable, Equatable, Sendable {
   public var text: String
   public var voice: String
   public var speed: Float
   /// Cut off whatever is playing (and anything queued) before speaking.
   public var interrupt: Bool
-  /// Only stop: no text is spoken.
-  public var stop: Bool
 
-  public init(text: String = "", voice: String = Defaults.voice, speed: Float = 1, interrupt: Bool = false, stop: Bool = false) {
+  public init(text: String = "", voice: String = Defaults.voice, speed: Float = 1, interrupt: Bool = false) {
     self.text = text
     self.voice = voice
     self.speed = speed
     self.interrupt = interrupt
-    self.stop = stop
   }
 }
 
