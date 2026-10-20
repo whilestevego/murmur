@@ -45,6 +45,8 @@ actor Speaker {
   private var generation = 0
   /// The latest request's loop; a queued request waits for it, an interrupting one doesn't.
   private var tail: Task<Void, Never>?
+  /// The latest render; the next one waits for it.
+  private var rendering: Task<[Float], Error>?
   private var pending = 0
   private var lastActive = Date()
   private lazy var lexicon = Lexicon.load()
@@ -109,14 +111,9 @@ actor Speaker {
       var samples = PhraseCache.get(key)
       if samples == nil {
         do {
-          let manager = try await loadedManager()
-          if sounds != self.sounds {
-            await manager.setEnglishCustomLexicon(sounds)
-            self.sounds = sounds
-          }
-          let out = try await manager.synthesizeDetailed(text: sentence, voice: request.voice, speed: request.speed)
-          samples = out.samples
-          PhraseCache.put(key, out.samples)
+          let out = try await render(sentence, sounds, voice: request.voice, speed: request.speed)
+          samples = out
+          PhraseCache.put(key, out)
         } catch {
           log("synthesis failed: \(error)")
           return
@@ -125,6 +122,23 @@ actor Speaker {
       guard gen == generation, let samples, !samples.isEmpty else { return }
       play(samples)
     }
+  }
+
+  /// One render at a time, each after the last: the sounds set for a sentence are still set when it renders, even if
+  /// an interrupting request's loop is rendering too.
+  private func render(_ sentence: String, _ sounds: [String: String], voice: String, speed: Float) async throws -> [Float] {
+    let previous = rendering
+    let task = Task {
+      _ = try? await previous?.value  // a failed render doesn't hold up the next
+      let manager = try await self.loadedManager()
+      if sounds != self.sounds {
+        await manager.setEnglishCustomLexicon(sounds)
+        self.sounds = sounds
+      }
+      return try await manager.synthesizeDetailed(text: sentence, voice: voice, speed: speed).samples
+    }
+    rendering = task
+    return try await task.value
   }
 
   private func play(_ samples: [Float]) {
