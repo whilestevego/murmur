@@ -63,14 +63,5 @@ public func pronounce(_ text: String, _ dictionary: [String: String]) -> String 
   guard !dictionary.isEmpty else { return text }
   let words = dictionary.keys.sorted { $0.count > $1.count }.map(NSRegularExpression.escapedPattern(for:))
   let pattern = "(?<![\\p{L}\\p{N}_])(" + words.joined(separator: "|") + ")(?![\\p{L}\\p{N}_])"
-  guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
-  let source = text as NSString
-  var out = ""
-  var last = 0
-  for match in regex.matches(in: text, range: NSRange(location: 0, length: source.length)) {
-    out += source.substring(with: NSRange(location: last, length: match.range.location - last))
-    out += dictionary[source.substring(with: match.range)] ?? source.substring(with: match.range)
-    last = match.range.location + match.range.length
-  }
-  return out + source.substring(from: last)
+  return replace(text, pattern) { dictionary[$0[0]] }
 }
