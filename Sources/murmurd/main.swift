@@ -202,8 +202,9 @@ Thread.detachNewThread {
 }
 
 // Exit when idle: no model in memory, no audio device held. The next `murmur` restarts it.
-Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
-  Task {
+Task {
+  while true {
+    try? await Task.sleep(for: .seconds(30))
     if await speaker.isIdle {
       log("idle, exiting")
       unlink(Paths.socket.path)
