@@ -281,7 +281,18 @@ final class ArgumentTests: XCTestCase {
   func testBadOptions() {
     XCTAssertEqual(usageError("-v"), "--voice needs a name")
     XCTAssertEqual(usageError("--voice", "xx_nobody", "Hi"), "unknown voice xx_nobody (see: murmur voices)")
-    for speed in ["0", "-1", "fast"] { XCTAssertEqual(usageError("-s", speed, "Hi"), "--speed needs a number", speed) }
+    for speed in ["0", "-1", "fast", "inf", "1e40", "nan"] {
+      XCTAssertEqual(usageError("-s", speed, "Hi"), "--speed needs a number", speed)
+    }
     XCTAssertEqual(usageError("Hi", "--speed"), "--speed needs a number")
+  }
+}
+
+final class NormalizeSafetyTests: XCTestCase {
+  /// `\d` matches any Unicode digit, but `Int` only reads ASCII ones: these crashed murmurd.
+  func testOtherDigitsAreLeftAlone() {
+    for text in ["٣:30", "١:00:00", "１:05", "the ٣0s", "٣Q22", "₩٣"] {
+      XCTAssertFalse(normalize(text).isEmpty, text)
+    }
   }
 }

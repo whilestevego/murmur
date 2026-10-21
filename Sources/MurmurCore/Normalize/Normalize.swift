@@ -93,6 +93,7 @@ func replace(_ text: String, _ pattern: String, _ f: ([String]) -> String?) -> S
   // The patterns are constants, so a bad one fails every test.
   let regex = compiled.withLock { cache in
     if let regex = cache[pattern] { return regex }
+    // swift-format-ignore: NeverUseForceTry
     let regex = try! NSRegularExpression(pattern: pattern, options: .anchorsMatchLines)
     cache[pattern] = regex
     return regex

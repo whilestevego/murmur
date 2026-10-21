@@ -14,22 +14,25 @@ func measures(_ text: String) -> String {
   }
   // 5 m2, 41459 km³ → "5 square meters", "41459 cubic kilometers"
   t = replace(t, #"(\d+(?:\.\d+)?)\h?(km|cm|mm|m|ft)(2|²|3|³)(?!\w)"#) { g in
-    let name = ["km": "kilometers", "cm": "centimeters", "mm": "millimeters", "m": "meters", "ft": "feet"][g[2]]!
+    let names = ["km": "kilometers", "cm": "centimeters", "mm": "millimeters", "m": "meters", "ft": "feet"]
+    guard let name = names[g[2]] else { return nil }
     return "\(g[1]) \("2²".contains(g[3]) ? "square" : "cubic") \(name)"
   }
   // 12kg/kg, 60 km/h → "per kilogram", "per hour"
   t = replace(t, "(?<=[\\w])\\h?/\\h?(\(keys)|\(glued))(?![\\w/])") { g in
-    " per \((units[g[1]] ?? gluedUnits[g[1]])!.0)"
+    (units[g[1]] ?? gluedUnits[g[1]]).map { " per \($0.0)" }
   }
   // 200ms → "200 milliseconds", 100 million kg → "100 million kilograms", 2 and a half lbs → "… pounds"
   t = replace(
     t,
     "(?<![\\w.])(\\d+(?:\\.\\d+)?)((?:\\h(?:thousand|million|billion|trillion))?)(?:\\h?(\(keys))|(\(glued)))(?![\\w/])"
   ) { g in
-    let unit = g[3].isEmpty ? gluedUnits[g[4]]! : units[g[3]]!
+    guard let unit = g[3].isEmpty ? gluedUnits[g[4]] : units[g[3]] else { return nil }
     return "\(g[1])\(g[2]) \(g[1] == "1" && g[2].isEmpty ? unit.0 : unit.1)"
   }
-  t = replace(t, "\\b(half|halves|quarters?|thirds?)\\h+(\(keys))(?![\\w/])") { "\($0[1]) \(units[$0[2]]!.1)" }
+  t = replace(t, "\\b(half|halves|quarters?|thirds?)\\h+(\(keys))(?![\\w/])") { g in
+    units[g[2]].map { "\(g[1]) \($0.1)" }
+  }
   return t
 }
 
@@ -68,8 +71,8 @@ func addresses(_ text: String) -> String {
     text,
     #"\b(\d{1,5})\h+(?:([NSEW])\.?\h+)?((?:(?:[A-Z][a-z]+|\d+(?:st|nd|rd|th))\h+){1,3})(?i:(st|ave|rd|ct|blvd|dr|ln|expy|hwy|pkwy|pl))\b"#
   ) { g in
-    let kind = street.first { $0.key.lowercased() == g[4].lowercased() }!.value
-    return "\(houseNumber(g[1])) \(g[2].isEmpty ? "" : way[g[2]]! + " ")\(g[3])\(kind)"
+    guard let kind = street.first(where: { $0.key.lowercased() == g[4].lowercased() })?.value else { return nil }
+    return "\(houseNumber(g[1])) \(way[g[2]].map { $0 + " " } ?? "")\(g[3])\(kind)"
   }
   // …Street, Santa Clara, CA 95051 → "…, California 9 5 0 5 1"
   t = replace(

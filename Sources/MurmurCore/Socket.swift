@@ -46,9 +46,10 @@ public func listenSocket(_ path: String) -> Int32? {
 
 public func writeAll(_ fd: Int32, _ data: Data) {
   data.withUnsafeBytes { buf in
+    guard let base = buf.baseAddress else { return }  // empty
     var offset = 0
     while offset < buf.count {
-      let n = write(fd, buf.baseAddress! + offset, buf.count - offset)
+      let n = write(fd, base + offset, buf.count - offset)
       if n < 0 && errno == EINTR { continue }
       if n <= 0 { return }
       offset += n

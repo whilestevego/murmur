@@ -37,7 +37,7 @@ public struct Speech: Codable, Equatable, Sendable {
           throw UsageError("unknown voice \(voice) (see: murmur voices)")
         }
       case "-s", "--speed":
-        guard let s = args.isEmpty ? nil : Float(args.removeFirst()), s > 0 else {
+        guard let s = args.isEmpty ? nil : Float(args.removeFirst()), s.isFinite, s > 0 else {
           throw UsageError("--speed needs a number")
         }
         speed = s
