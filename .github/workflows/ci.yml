@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push cancels the checks that are still running for an older commit on the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # This is the Xcode version used for development. Pinning it keeps swift-format's rules the same in CI as locally.
+  DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - run: make lint
+
+  build:
+    name: Release build
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      # This builds the binaries that make install copies. Package.resolved must be up to date.
+      - run: swift build -c release --force-resolved-versions -Xswiftc -warnings-as-errors
+
+  test:
+    name: Tests
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - run: swift test --force-resolved-versions -Xswiftc -warnings-as-errors
+
+  sanitize:
+    name: Tests with ${{ matrix.sanitizer }} sanitizer
+    runs-on: macos-26
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # The thread sanitizer finds data races, and the address sanitizer finds memory errors in the code that uses
+        # unsafe pointers.
+        sanitizer: [thread, address]
+    steps:
+      - uses: actions/checkout@v7
+      - run: swift test --force-resolved-versions --sanitize=${{ matrix.sanitizer }}
