@@ -28,12 +28,12 @@
   "reflowMultilineStringLiterals" : "never",
   "respectsExistingLineBreaks" : true,
   "rules" : {
-    "AllPublicDeclarationsHaveDocumentation" : false,
+    "AllPublicDeclarationsHaveDocumentation" : true,
     "AlwaysUseLiteralForEmptyCollectionInit" : true,
     "AlwaysUseLowerCamelCase" : true,
     "AmbiguousTrailingClosureOverload" : true,
     "AvoidRetroactiveConformances" : true,
-    "BeginDocumentationCommentWithOneLineSummary" : false,
+    "BeginDocumentationCommentWithOneLineSummary" : true,
     "DoNotUseSemicolons" : true,
     "DontRepeatTypeInStaticProperties" : true,
     "FileScopedDeclarationPrivacy" : true,
@@ -70,7 +70,7 @@
     "UseSynthesizedInitializer" : true,
     "UseTripleSlashForDocumentationComments" : true,
     "UseWhereClausesInForLoops" : true,
-    "ValidateDocumentationComments" : false
+    "ValidateDocumentationComments" : true
   },
   "spacesAroundRangeFormationOperators" : false,
   "spacesBeforeEndOfLineComments" : 2,
