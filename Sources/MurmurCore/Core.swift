@@ -22,7 +22,9 @@ public struct Speech: Codable, Equatable, Sendable {
     self.interrupt = interrupt
   }
 
-  /// `murmur`'s options and words; empty text means none were given (murmur then reads stdin).
+  /// Reads the options and words `murmur` was given.
+  ///
+  /// Empty text means no words were given, and murmur then reads stdin.
   public init(arguments: [String]) throws(UsageError) {
     self.init()
     var args = arguments

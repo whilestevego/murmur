@@ -139,8 +139,10 @@ actor Speaker {
     return try await task.value
   }
 
-  /// Starts the engine and the player. Right after the engine starts, its output may not be running yet, and the
-  /// player then raises "player did not see an IO cycle" instead of playing: so it waits a moment and tries again.
+  /// Starts the engine and the player.
+  ///
+  /// Right after the engine starts, its output may not be running yet, and the player then raises "player did not see
+  /// an IO cycle" instead of playing: so it waits a moment and tries again.
   private func startPlayer() async -> Bool {
     for attempt in 1...3 {
       if engine.isRunning && player.isPlaying { return true }

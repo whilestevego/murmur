@@ -24,7 +24,9 @@ public func connectSocket(_ path: String) -> Int32? {
   return ok ? fd : nil
 }
 
-/// Binds and listens on `path`, replacing a stale socket file. Nil if it can't.
+/// Binds and listens on `path`, replacing a stale socket file.
+///
+/// Returns nil if it can't.
 public func listenSocket(_ path: String) -> Int32? {
   unlink(path)
   let fd = socket(AF_UNIX, SOCK_STREAM, 0)

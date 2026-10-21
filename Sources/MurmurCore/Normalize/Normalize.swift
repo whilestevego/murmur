@@ -1,11 +1,12 @@
 import Foundation
 import os
 
-/// Text rewritten into words Kokoro reads well, before your respellings. FluidAudio already reads plain numbers (`26`,
-/// `3.14`, `13th`) but leaves the ambiguous forms alone, and those come out as "ex" or garbled. The rules follow NVIDIA
-/// NeMo's English text normalization, checked against its test cases (`Tests/nemo`, `make nemo`), plus what code adds:
-/// paths, file names, versions, `snake_case` and `camelCase`. `knows` says whether a word has a known pronunciation,
-/// so `GitHub`-style names are split into words only when it doesn't.
+/// Text rewritten into words Kokoro reads well, before your respellings.
+///
+/// FluidAudio already reads plain numbers (`26`, `3.14`, `13th`) but leaves the ambiguous forms alone, and those come
+/// out as "ex" or garbled. The rules follow NVIDIA NeMo's English text normalization, checked against its test cases
+/// (`Tests/nemo`, `make nemo`), plus what code adds: paths, file names, versions, `snake_case` and `camelCase`. `knows`
+/// says whether a word has a known pronunciation, so `GitHub`-style names are split into words only when it doesn't.
 public func normalize(_ text: String, knows: (String) -> Bool = { _ in false }) -> String {
   withoutActuallyEscaping(knows) { knows in steps(knows).reduce(text) { t, step in step.apply(t) } }
 }

@@ -6,7 +6,7 @@ public struct VoiceInfo: Equatable, Sendable {
   /// Kokoro's own "Overall Grade" for the voice (A to F): how good and how plentiful its training audio was.
   public let grade: String
 
-  /// "af_nicole" → "Nicole"
+  /// The name to show: "af_nicole" → "Nicole".
   public var label: String { String(name.dropFirst(3)).capitalized }
 }
 
