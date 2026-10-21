@@ -3,6 +3,7 @@ import Darwin
 import FluidAudio
 import Foundation
 import MurmurCore
+import ObjCTry
 
 func log(_ message: String) {
   FileHandle.standardError.write(Data("\(Date()) \(message)\n".utf8))
@@ -67,6 +68,10 @@ actor Speaker {
   init() {
     engine.attach(player)
     engine.connect(player, to: engine.mainMixerNode, format: format)
+    // The engine stops itself when the output device changes (headphones, AirPlay, a display's speakers).
+    NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
+      Task { await self?.outputChanged() }
+    }
   }
 
   func handle(_ request: Request) {
@@ -133,6 +138,8 @@ actor Speaker {
         }
       }
       guard gen == generation, let samples, !samples.isEmpty else { return }
+      guard await startPlayer() else { return }
+      guard gen == generation else { return }  // a stop or interrupt may have come in while it started
       play(samples)
     }
   }
@@ -154,18 +161,41 @@ actor Speaker {
     return try await task.value
   }
 
+  /// Starts the engine and the player. Right after the engine starts, its output may not be running yet, and the
+  /// player then raises "player did not see an IO cycle" instead of playing: so it waits a moment and tries again.
+  private func startPlayer() async -> Bool {
+    for attempt in 1...3 {
+      if engine.isRunning && player.isPlaying { return true }
+      if !engine.isRunning {
+        do { try engine.start() } catch {
+          log("audio engine failed: \(error)")
+          return false
+        }
+      }
+      guard let exception = objcTry({ player.play() }) else { return true }
+      log("player didn't start (attempt \(attempt) of 3): \(exception.reason ?? exception.name.rawValue)")
+      player.stop()
+      engine.stop()
+      try? await Task.sleep(for: .milliseconds(250 * attempt))
+    }
+    return false
+  }
+
+  /// Queues samples on the running player (see `startPlayer`).
   private func play(_ samples: [Float]) {
     guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)) else { return }
     buffer.frameLength = buffer.frameCapacity
     samples.withUnsafeBufferPointer { buffer.floatChannelData![0].update(from: $0.baseAddress!, count: samples.count) }
-    if !engine.isRunning {
-      do { try engine.start() } catch { return log("audio engine failed: \(error)") }
-    }
     pending += 1
     player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in
       Task { await self.played() }
     }
-    if !player.isPlaying { player.play() }
+  }
+
+  /// Drops what was playing on the old output, so `pending` drains; the next sentence starts the engine on the new one.
+  private func outputChanged() {
+    log("audio output changed")
+    player.stop()  // fires the scheduled buffers' completions
   }
 
   private func played() {

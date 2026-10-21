@@ -1,3 +1,4 @@
+import ObjCTry
 import XCTest
 @testable import MurmurCore
 
@@ -20,6 +21,11 @@ final class CoreTests: XCTestCase {
     for r in [Request.speak(Speech(text: "Hello", voice: "bm_george", speed: 1.1, interrupt: true)), .stop] {
       XCTAssertEqual(try JSONDecoder().decode(Request.self, from: JSONEncoder().encode(r)), r)
     }
+  }
+
+  func testObjCTryCatchesRaisedExceptions() {
+    XCTAssertEqual(objcTry { NSException(name: .genericException, reason: "no IO cycle").raise() }?.reason, "no IO cycle")
+    XCTAssertNil(objcTry {})
   }
 
   func testSocketPathFitsSunPath() {

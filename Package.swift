@@ -14,10 +14,12 @@ let package = Package(
   targets: [
     // The client links nothing heavy: it starts in milliseconds and only hands text to murmurd.
     .executableTarget(name: "murmur", dependencies: ["MurmurCore"]),
-    .executableTarget(name: "murmurd", dependencies: ["MurmurCore", "FluidAudio"]),
+    .executableTarget(name: "murmurd", dependencies: ["MurmurCore", "ObjCTry", "FluidAudio"]),
     // Pure logic shared by both and unit-tested: protocol, paths, sentence splitting, cache keys.
     .target(name: "MurmurCore"),
-    .testTarget(name: "MurmurCoreTests", dependencies: ["MurmurCore"]),
+    // Catches the Objective-C exceptions AVAudioEngine raises, which Swift can't.
+    .target(name: "ObjCTry"),
+    .testTarget(name: "MurmurCoreTests", dependencies: ["MurmurCore", "ObjCTry"]),
   ],
   swiftLanguageModes: [.v6]
 )
