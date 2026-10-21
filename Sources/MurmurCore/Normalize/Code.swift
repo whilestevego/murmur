@@ -3,9 +3,10 @@ import Foundation
 /// How a file extension is said: "jason", "swift", or its letters ("T S X"); nil for anything that isn't one.
 func spokenExtension(_ ext: String) -> String? {
   let ext = ext.lowercased()
-  if let word = ["json": "jason", "yaml": "yamel", "yml": "yamel", "toml": "tommel", "go": "go", "swift": "swift",
-    "lock": "lock", "log": "log", "java": "java", "env": "env", "plist": "P list", "jpeg": "J peg", "jpg": "J peg"][ext]
-  {
+  if let word = [
+    "json": "jason", "yaml": "yamel", "yml": "yamel", "toml": "tommel", "go": "go", "swift": "swift",
+    "lock": "lock", "log": "log", "java": "java", "env": "env", "plist": "P list", "jpeg": "J peg", "jpg": "J peg",
+  ][ext] {
     return word
   }
   let lettered: Set<String> = [
@@ -49,7 +50,8 @@ func mixedCodes(_ text: String) -> String {
     let digits = g[0].prefix { $0.isNumber }
     if let n = Int(digits), g[0].dropFirst(digits.count).lowercased() == ordinalSuffix(n) { return nil }
     let split = replace(g[0], #"(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])"#) { _ in " " }
-    return replace(split, #"\d{4,}"#) { $0[0].hasSuffix("00") ? nil : spaced($0[0]) }  // ab9453, a code: digit by digit; t2000 stays a number
+    // ab9453, a code: digit by digit; t2000 stays a number
+    return replace(split, #"\d{4,}"#) { $0[0].hasSuffix("00") ? nil : spaced($0[0]) }
   }
 }
 

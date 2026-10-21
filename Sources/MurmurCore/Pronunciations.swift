@@ -46,15 +46,22 @@ extension Pronunciations {
   /// Respellings (`JSON = Jason`) and exact sounds (`rebase = /ɹˈibˌAs/`, as `murmur phonemes` prints them).
   public static func split(_ all: [String: String]) -> (respell: [String: String], sounds: [String: String]) {
     let isSound = { (v: String) in v.count > 2 && v.hasPrefix("/") && v.hasSuffix("/") }
-    return (all.filter { !isSound($0.value) }, all.filter { isSound($0.value) }.mapValues { String($0.dropFirst().dropLast()) })
+    return (
+      all.filter { !isSound($0.value) },
+      all.filter { isSound($0.value) }.mapValues { String($0.dropFirst().dropLast()) }
+    )
   }
 }
 
 /// Text as murmur says it: tech text cleaned up, your respellings applied, cut into sentences, each with the exact
 /// sounds FluidAudio should use for its words (yours, and the ones misaki's rules work out).
-public func prepare(_ text: String, _ pronunciations: [String: String], _ lexicon: Lexicon) -> [(text: String, sounds: [String: String])] {
+public func prepare(
+  _ text: String, _ pronunciations: [String: String], _ lexicon: Lexicon
+) -> [(text: String, sounds: [String: String])] {
   let (respell, mine) = Pronunciations.split(pronunciations)
-  let clean = normalize(text) { lexicon.entry($0) != nil || respell[$0] != nil || mine[$0] != nil || mine[$0.lowercased()] != nil }
+  let clean = normalize(text) {
+    lexicon.entry($0) != nil || respell[$0] != nil || mine[$0] != nil || mine[$0.lowercased()] != nil
+  }
   return sentences(pronounce(clean, respell)).map { ($0, lexicon.sounds(for: $0, mine: mine)) }
 }
 

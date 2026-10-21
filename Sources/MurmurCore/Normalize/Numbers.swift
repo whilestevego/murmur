@@ -17,7 +17,9 @@ func bigNumbers(_ text: String) -> String {
   let t = replace(text, #"(?<![\d.,])\d{13,}(?![\d.,]\d|\d)"#) { spaced($0[0]) }
   return replace(t, #"(?<![\d.,])\d{1,3}(?:,\d{3}){6,}(?![\d,])"#) { g in
     let groups = g[0].split(separator: ",").compactMap { Int($0) }
-    let scales = ["", "thousand", "million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion"]
+    let scales = [
+      "", "thousand", "million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion",
+    ]
     guard groups.count < scales.count else { return nil }
     return groups.enumerated().compactMap { i, n in
       n == 0 ? nil : "\(cardinalWords(n)) \(scales[groups.count - 1 - i])"
@@ -40,7 +42,8 @@ func pointsAndPercents(_ text: String) -> String {
 func math(_ text: String) -> String {
   var t = replace(text, #"[\w.]+(?:\h?[-+*/]\h?[\w.]+)*\h?=\h?[\w.]+(?:\h?[-+*/]\h?[\w.]+)*"#) { g in
     let ops = ["-": " minus ", "+": " plus ", "*": " times ", "/": " over ", "=": " equals "]
-    return g[0].map { ops[String($0)] ?? String($0) }.joined().replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+    let said = g[0].map { ops[String($0)] ?? String($0) }.joined()
+    return said.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
   }
   t = replace(t, #"(\d)\h?x\h?(?=\d)"#) { "\($0[1]) by " }
   return replace(t, #"(?<=\d)\h?\+\h?(?=\d)"#) { _ in " plus " }
@@ -55,7 +58,10 @@ func ranges(_ text: String) -> String {
 
 // Chapter IV → "Chapter 4"
 func romanChapters(_ text: String) -> String {
-  replace(text, #"(?i)\b(chapter|part|section|volume|vol\.|book|act|scene|phase|stage|level|world war|article|appendix|title)\h+([IVXLC]+)\b"#) { g in
+  replace(
+    text,
+    #"(?i)\b(chapter|part|section|volume|vol\.|book|act|scene|phase|stage|level|world war|article|appendix|title)\h+([IVXLC]+)\b"#
+  ) { g in
     roman(g[2]).map { "\(g[1]) \($0)" }
   }
 }
@@ -65,13 +71,14 @@ func romanChapters(_ text: String) -> String {
 func money(_ text: String) -> String {
   var t = replace(text, #"(?<=\d)\h?-\h?(?=(?:US\$|[$€£¥₩])\d)"#) { _ in " to " }
   // $5 → "5 dollars", $20.50 → "20 dollars 50 cents", $2.5 million → "2.5 million dollars", $20/mo → "… per month"
-  let pattern = #"(US\$|[$€£¥₩])\h?(\d*)(?:\.(\d+))?(?:\h?(thousand|million|billion|trillion|bn|mn|[kKmMbB])\b)?(?:/(mo|month|yr|year|wk|week|d|day|hr|hour|h)\b)?"#
+  let pattern =
+    #"(US\$|[$€£¥₩])\h?(\d*)(?:\.(\d+))?(?:\h?(thousand|million|billion|trillion|bn|mn|[kKmMbB])\b)?(?:/(mo|month|yr|year|wk|week|d|day|hr|hour|h)\b)?"#
   t = replace(t, pattern) { g in
     guard !(g[2] + g[3]).isEmpty else { return nil }
     let c = currencies[g[1]]!
     let per = g[5].isEmpty ? "" : " per \(periods[g[5]]!)"
     if !g[4].isEmpty {
-      let scale = ["k": "thousand", "K": "thousand", "m": "million", "M": "million", "mn": "million", "b": "billion", "B": "billion", "bn": "billion"][g[4]] ?? g[4]
+      let scale = scales[g[4]] ?? g[4]
       return "\(g[2].isEmpty ? "0" : g[2])\(g[3].isEmpty ? "" : ".\(g[3])") \(scale) \(c.many)\(per)"
     }
     let whole = Int(g[2].isEmpty ? "0" : g[2]) ?? 0
@@ -94,8 +101,14 @@ private let currencies: [String: (one: String, many: String, cent: String, cents
   "€": ("euro", "euros", "cent", "cents"), "£": ("pound", "pounds", "penny", "pence"),
   "¥": ("yen", "yen", "sen", "sen"), "₩": ("won", "won", "jeon", "jeon"),
 ]
-private let periods = ["mo": "month", "month": "month", "yr": "year", "year": "year", "wk": "week", "week": "week",
-  "d": "day", "day": "day", "hr": "hour", "hour": "hour", "h": "hour"]
+private let scales = [
+  "k": "thousand", "K": "thousand", "m": "million", "M": "million", "mn": "million",
+  "b": "billion", "B": "billion", "bn": "billion",
+]
+private let periods = [
+  "mo": "month", "month": "month", "yr": "year", "year": "year", "wk": "week", "week": "week",
+  "d": "day", "day": "day", "hr": "hour", "hour": "hour", "h": "hour",
+]
 
 func fractions(_ text: String) -> String {
   var t = text
@@ -125,7 +138,9 @@ func decades(_ text: String) -> String {
   // 1960s-80s → "1960s to 80s"; 1980s → "19 eighties", '80s → "eighties", 2000s → "two thousands"
   let t = replace(text, #"(?<=\ds)\h?[-–]\h?(?=(?:\d{2}|\d{4})s\b)"#) { _ in " to " }
   return replace(t, #"(?<![\w.])(?:'|(1\d|20))?(\d)0(?:s|(?<=\d{4})\h+s)\b"#) { g in
-    let tens = ["hundreds", "tens", "twenties", "thirties", "forties", "fifties", "sixties", "seventies", "eighties", "nineties"]
+    let tens = [
+      "hundreds", "tens", "twenties", "thirties", "forties", "fifties", "sixties", "seventies", "eighties", "nineties",
+    ]
     let d = Int(g[2])!
     if g[1] == "20" && d == 0 { return "two thousands" }
     if d == 0 && g[1].isEmpty { return nil }
@@ -149,7 +164,7 @@ func years(_ text: String) -> String {
 private let yearPattern: String = {
   let named: [(String, String)] = Array(units.values) + Array(gluedUnits.values)
   let unitWords: [String] = named.flatMap { [$0.0, $0.1] } + ["percent"]
-  let unitAlternation: String = Set(unitWords).map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: "|")
+  let unitAlternation: String = Set(unitWords).map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|")
   let notPlural = #"this|was|has|does|is|its|his|thus|yes|plus|less|unless|across|always|perhaps|as|us"#
   let year = #"(?<![\d.,:$€£¥₩#/-])(1[1-9]\d{2}|20\d{2})(?![\d.,:/]\d|\d)"#
   let noUnit = #"(?!(?:\h+to\h+\d+(?:\.\d+)?)?\h+(?:"# + unitAlternation + #")\b)"#
@@ -172,9 +187,12 @@ func cardinalWords(_ n: Int) -> String {
 
 /// 32 → "thirty second", 2007 → "two thousand seventh"
 func ordinalWords(_ n: Int) -> String {
-  var words = (spellOut.string(from: n as NSNumber) ?? "\(n)").replacingOccurrences(of: "-", with: " ").split(separator: " ").map(String.init)
+  var words = cardinalWords(n).split(separator: " ").map(String.init)
   let last = words.removeLast()
-  let irregular = ["one": "first", "two": "second", "three": "third", "five": "fifth", "eight": "eighth", "nine": "ninth", "twelve": "twelfth"]
+  let irregular = [
+    "one": "first", "two": "second", "three": "third", "five": "fifth", "eight": "eighth", "nine": "ninth",
+    "twelve": "twelfth",
+  ]
   words.append(irregular[last] ?? (last.hasSuffix("y") ? last.dropLast() + "ieth" : last + "th"))
   return words.joined(separator: " ")
 }

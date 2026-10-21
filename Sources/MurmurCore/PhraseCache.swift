@@ -26,7 +26,9 @@ public struct PhraseCache: Sendable {
     try? fm.createDirectory(at: directory, withIntermediateDirectories: true)
     try? samples.withUnsafeBufferPointer { Data(buffer: $0) }.write(to: url(key), options: .atomic)
     let keys: Set<URLResourceKey> = [.contentModificationDateKey, .fileSizeKey]
-    guard let files = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: Array(keys)) else { return }
+    guard let files = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: Array(keys)) else {
+      return
+    }
     let entries = files.compactMap { f -> (URL, Date, Int)? in
       guard let v = try? f.resourceValues(forKeys: keys) else { return nil }
       return (f, v.contentModificationDate ?? .distantPast, v.fileSize ?? 0)

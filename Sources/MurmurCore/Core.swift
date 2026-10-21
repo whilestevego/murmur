@@ -33,9 +33,13 @@ public struct Speech: Codable, Equatable, Sendable {
       case "-v", "--voice":
         guard !args.isEmpty else { throw UsageError("--voice needs a name") }
         voice = args.removeFirst()
-        guard voiceCatalog.contains(where: { $0.name == voice }) else { throw UsageError("unknown voice \(voice) (see: murmur voices)") }
+        guard voiceCatalog.contains(where: { $0.name == voice }) else {
+          throw UsageError("unknown voice \(voice) (see: murmur voices)")
+        }
       case "-s", "--speed":
-        guard let s = args.isEmpty ? nil : Float(args.removeFirst()), s > 0 else { throw UsageError("--speed needs a number") }
+        guard let s = args.isEmpty ? nil : Float(args.removeFirst()), s > 0 else {
+          throw UsageError("--speed needs a number")
+        }
         speed = s
       case "-i", "--interrupt": interrupt = true
       case "--":  // everything after is text, even if it looks like a flag
