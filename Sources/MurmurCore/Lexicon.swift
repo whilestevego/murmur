@@ -50,6 +50,8 @@ public struct Lexicon: Sendable {
   }
 
   private static let keyScalars = CharacterSet.letters.union(.decimalDigits).union(CharacterSet(charactersIn: "'"))
+  // swift-format-ignore: NeverUseForceTry
+  // A constant pattern: if it didn't compile, every test would fail.
   private static let wordRegex = try! NSRegularExpression(
     pattern: "[\\p{L}\\p{N}][\\p{L}\\p{N}-]*(?:'[\\p{L}\\p{N}]+)*")
 
@@ -83,14 +85,15 @@ public struct Lexicon: Sendable {
 
   /// `PR` → "pˈi ˈɑɹ", from the single-letter entries.
   private func spell(_ word: String) -> String? {
-    let letters = word.map { cased[String($0)] }
-    return letters.contains(nil) ? nil : letters.map { $0! }.joined(separator: " ")
+    let letters = word.compactMap { cased[String($0)] }
+    return letters.count == word.count ? letters.joined(separator: " ") : nil
   }
 
   private func derive(_ word: String, _ mine: [String: String]) -> String? {
     if word.contains("-") {
-      let parts = word.split(separator: "-").map { lookup(String($0), mine) ?? derive(String($0), mine) }
-      return parts.count > 1 && !parts.contains(nil) ? parts.map { $0! }.joined(separator: " ") : nil
+      let pieces = word.split(separator: "-")
+      let parts = pieces.compactMap { lookup(String($0), mine) ?? derive(String($0), mine) }
+      return pieces.count > 1 && parts.count == pieces.count ? parts.joined(separator: " ") : nil
     }
     for w in [word, word.lowercased()] {
       if let s = stemS(w, mine) ?? stemEd(w, mine) ?? stemIng(w, mine) { return s }

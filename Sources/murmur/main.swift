@@ -95,7 +95,8 @@ func send(_ request: Request) {
     }
   }
   guard let fd else { fail("murmurd didn't start; see \(Paths.log.path)") }
-  writeAll(fd, try! JSONEncoder().encode(request))
+  guard let body = try? JSONEncoder().encode(request) else { fail("couldn't encode the request") }
+  writeAll(fd, body)
   close(fd)
 }
 

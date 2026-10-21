@@ -21,6 +21,8 @@ actor Speaker {
   private let engine = AVAudioEngine()
   private let player = AVAudioPlayerNode()
   private let cache = PhraseCache()
+  // swift-format-ignore: NeverForceUnwrap
+  // Only nil for a channel count or sample rate AVAudioFormat can't take, and these are fixed.
   private let format = AVAudioFormat(standardFormatWithSampleRate: Defaults.sampleRate, channels: 1)!
   /// Bumped by stop/interrupt: a speaking loop from an older generation stops scheduling.
   private var generation = 0
@@ -159,11 +161,11 @@ actor Speaker {
 
   /// Queues samples on the running player (see `startPlayer`).
   private func play(_ samples: [Float]) {
-    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)) else {
-      return
-    }
+    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)),
+      let channel = buffer.floatChannelData?[0]
+    else { return }
     buffer.frameLength = buffer.frameCapacity
-    samples.withUnsafeBufferPointer { buffer.floatChannelData![0].update(from: $0.baseAddress!, count: samples.count) }
+    channel.update(from: samples, count: samples.count)
     pending += 1
     player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in
       Task { await self.played() }

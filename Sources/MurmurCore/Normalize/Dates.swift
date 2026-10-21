@@ -55,7 +55,7 @@ func times(_ text: String) -> String {
   var t = text
   // 1:01:01 → "1 hour 1 minute and 1 second"
   t = replace(t, #"(?i)(?<![\d:])(\d{1,2}):([0-5]\d):([0-5]\d)(?![\d:])(\h*[ap]\.?m\b\.?)?"#) { g in
-    let (h, m, s) = (Int(g[1])!, Int(g[2])!, Int(g[3])!)
+    guard let h = Int(g[1]), let m = Int(g[2]), let s = Int(g[3]) else { return nil }
     let said =
       "\(h) \(h == 1 ? "hour" : "hours") \(m) \(m == 1 ? "minute" : "minutes") and \(s) \(s == 1 ? "second" : "seconds")"
     return said + (g[4].isEmpty ? "" : " \(meridiem(g[4]))")
@@ -72,7 +72,7 @@ func times(_ text: String) -> String {
   t = replace(t, #"\b(AM|PM)\h?[-–]\h?(?=\d)"#) { "\($0[1]) to " }
   // 10:30 → "10 30", 3:05 → "3 oh 5", 09:00 → "9 o'clock"
   t = replace(t, #"(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])"#) { g in
-    let h = Int(g[1])!
+    guard let h = Int(g[1]) else { return nil }
     return g[2] == "00" ? "\(h) o'clock" : "\(h) \(minutes(g[2]))"
   }
   return t

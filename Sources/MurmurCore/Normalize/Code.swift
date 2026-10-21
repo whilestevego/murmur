@@ -19,7 +19,7 @@ func spokenExtension(_ ext: String) -> String? {
 // ~/src/app/main.swift → "main dot swift"; and/or and client/server are left to the slash rule.
 func paths(_ text: String) -> String {
   replace(text, #"(?<![\w/.~-])(~|\.{1,2})?(/)?((?:[\w.-]+/)+)([\w-]+(?:\.[\w-]+)*)"#) { g in
-    let hasType = g[4].contains(".") && spokenExtension(String(g[4].split(separator: ".").last!)) != nil
+    let hasType = g[4].contains(".") && g[4].split(separator: ".").last.flatMap { spokenExtension(String($0)) } != nil
     let isPath = !g[1].isEmpty || !g[2].isEmpty || g[3].filter { $0 == "/" }.count > 2 || hasType
     return isPath && g[0].contains(where: \.isLetter) ? g[4] : nil
   }

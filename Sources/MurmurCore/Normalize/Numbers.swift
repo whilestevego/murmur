@@ -8,7 +8,9 @@ func fourOhOneK(_ text: String) -> String {
 
 // 2Q22 → "the second quarter of 22"; 340 A.D → "3 40 AD"
 func quartersAndEras(_ text: String) -> String {
-  let t = replace(text, #"\b([1-4])Q(\d{2}|\d{4})\b"#) { "the \(ordinalWords(Int($0[1])!)) quarter of \($0[2])" }
+  let t = replace(text, #"\b([1-4])Q(\d{2}|\d{4})\b"#) { g in
+    Int(g[1]).map { "the \(ordinalWords($0)) quarter of \(g[2])" }
+  }
   return replace(t, #"\b(\d{1,4})\h?(A\.?D|B\.?C)\b\.?"#) { "\(houseNumber($0[1])) \($0[2].filter(\.isLetter))" }
 }
 
@@ -74,9 +76,8 @@ func money(_ text: String) -> String {
   let pattern =
     #"(US\$|[$€£¥₩])\h?(\d*)(?:\.(\d+))?(?:\h?(thousand|million|billion|trillion|bn|mn|[kKmMbB])\b)?(?:/(mo|month|yr|year|wk|week|d|day|hr|hour|h)\b)?"#
   t = replace(t, pattern) { g in
-    guard !(g[2] + g[3]).isEmpty else { return nil }
-    let c = currencies[g[1]]!
-    let per = g[5].isEmpty ? "" : " per \(periods[g[5]]!)"
+    guard !(g[2] + g[3]).isEmpty, let c = currencies[g[1]] else { return nil }
+    let per = periods[g[5]].map { " per \($0)" } ?? ""
     if !g[4].isEmpty {
       let scale = scales[g[4]] ?? g[4]
       return "\(g[2].isEmpty ? "0" : g[2])\(g[3].isEmpty ? "" : ".\(g[3])") \(scale) \(c.many)\(per)"
@@ -141,7 +142,7 @@ func decades(_ text: String) -> String {
     let tens = [
       "hundreds", "tens", "twenties", "thirties", "forties", "fifties", "sixties", "seventies", "eighties", "nineties",
     ]
-    let d = Int(g[2])!
+    guard let d = Int(g[2]) else { return nil }
     if g[1] == "20" && d == 0 { return "two thousands" }
     if d == 0 && g[1].isEmpty { return nil }
     return g[1].isEmpty ? tens[d] : "\(g[1]) \(tens[d])"

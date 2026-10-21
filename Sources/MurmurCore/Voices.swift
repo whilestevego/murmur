@@ -50,8 +50,8 @@ public enum VoicePacks {
   }
 
   /// FluidAudio only publishes af_heart for the Neural Engine; these are the same raw packs, one file per voice.
-  static func remote(_ name: String) -> URL {
-    URL(string: "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/\(name).bin")!
+  static func remote(_ name: String) -> URL? {
+    URL(string: "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/\(name).bin")
   }
 
   public enum InstallError: Error, CustomStringConvertible {
@@ -69,8 +69,10 @@ public enum VoicePacks {
 
   /// Downloads one pack (~510 KB), checks its size, and moves it into place atomically.
   public static func install(_ name: String) async throws {
-    guard voiceCatalog.contains(where: { $0.name == name }) else { throw InstallError.unknown(name) }
-    var request = URLRequest(url: remote(name))
+    guard voiceCatalog.contains(where: { $0.name == name }), let url = remote(name) else {
+      throw InstallError.unknown(name)
+    }
+    var request = URLRequest(url: url)
     request.timeoutInterval = 30
     let data: Data
     do {
