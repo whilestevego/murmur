@@ -12,12 +12,12 @@ let package = Package(
     .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.15.5")
   ],
   targets: [
-    // The client links nothing heavy: it starts in milliseconds and only hands text to murmurd.
+    // The client doesn't link FluidAudio, so it starts in milliseconds. It only sends requests to murmurd.
     .executableTarget(name: "murmur", dependencies: ["MurmurCore"]),
     .executableTarget(name: "murmurd", dependencies: ["MurmurCore", "ObjCTry", "FluidAudio"]),
-    // Pure logic shared by both and unit-tested: protocol, paths, sentence splitting, cache keys.
+    // The code that both executables share. The unit tests cover it.
     .target(name: "MurmurCore"),
-    // Catches the Objective-C exceptions AVAudioEngine raises, which Swift can't.
+    // Catches the Objective-C exceptions that AVAudioEngine raises, because Swift can't.
     .target(name: "ObjCTry"),
     .testTarget(name: "MurmurCoreTests", dependencies: ["MurmurCore", "ObjCTry"]),
   ],

@@ -3,23 +3,24 @@ BIN = .build/release
 
 .PHONY: build test nemo format lint install uninstall
 
-build: ## Release build of murmur and murmurd
+build: ## Builds murmur and murmurd for release.
 	swift build -c release
 
 test:
 	swift test
 
-nemo: build ## Score the text cleanup against NeMo's English normalization cases (SHOW=1 lists failures)
+nemo: build ## Scores text normalization against NeMo's English test cases. Set SHOW=1 to list the failures.
 	python3 Tests/nemo/score.py
 
-format: ## Format the Swift sources in place (swift-format, configured in .swift-format)
+format: ## Formats the Swift sources in place with swift-format.
 	swift format format -i -r -p Sources Tests Package.swift
 
-lint: ## Fail on anything format would change, or a lint rule breaks
+lint: ## Fails if formatting would change anything, or if code breaks a lint rule.
 	swift format lint --strict -r -p Sources Tests Package.swift
 
-install: build ## Install both commands into $(PREFIX)/bin (murmur finds murmurd beside it)
-	-pkill -x murmurd  # a running murmurd would keep speaking with the old code
+# A running murmurd would keep running the old code, so install stops it first.
+install: build ## Installs murmur and murmurd in $(PREFIX)/bin. murmur finds murmurd in the same directory.
+	-pkill -x murmurd
 	install -d $(PREFIX)/bin
 	install -m 755 $(BIN)/murmur $(BIN)/murmurd $(PREFIX)/bin/
 	@echo "Installed to $(PREFIX)/bin. Next: murmur setup [--from <KokoroBundle>]"

@@ -1,24 +1,37 @@
 import Foundation
 
-/// One request from `murmur` to `murmurd`: a single JSON line per connection.
+/// A request from `murmur` to `murmurd`.
+///
+/// Each connection carries one request, encoded as JSON.
 public enum Request: Codable, Equatable, Sendable {
+  /// A request to speak text.
   case speak(Speech)
-  /// Stop speaking and drop anything queued.
+  /// A request to stop speaking and discard any queued speech.
   case stop
 }
 
-/// Text to speak, and how.
+/// Text to speak, with the voice and speed to speak it in.
 public struct Speech: Codable, Equatable, Sendable {
-  /// Raw text: murmurd cleans it up and splits it into sentences.
+  /// The text to speak.
+  ///
+  /// It can hold several sentences, and text such as paths and numbers that is normalized before it's spoken.
   public var text: String
-  /// A name from `voiceCatalog`; murmurd installs it on first use.
+  /// The name of the voice, which must be in ``voiceCatalog``.
   public var voice: String
-  /// Kokoro's speaking rate: 1 is normal, above 1 faster.
+  /// The speaking rate, where 1 is normal speed and larger values are faster.
+  ///
+  /// It must be finite and greater than 0.
   public var speed: Float
-  /// Cut off whatever is playing (and anything queued) before speaking.
+  /// A Boolean value that indicates whether to stop current and queued speech before speaking.
   public var interrupt: Bool
 
-  /// Speech in the default voice at normal speed, queued after whatever is playing.
+  /// Creates a speech request.
+  ///
+  /// - Parameters:
+  ///   - text: The text to speak.
+  ///   - voice: The name of the voice, which must be in ``voiceCatalog``.
+  ///   - speed: The speaking rate, where 1 is normal speed.
+  ///   - interrupt: Whether to stop current and queued speech first.
   public init(text: String = "", voice: String = Defaults.voice, speed: Float = 1, interrupt: Bool = false) {
     self.text = text
     self.voice = voice
@@ -26,9 +39,14 @@ public struct Speech: Codable, Equatable, Sendable {
     self.interrupt = interrupt
   }
 
-  /// Reads the options and words `murmur` was given.
+  /// Creates a speech request from command-line arguments.
   ///
-  /// Empty text means no words were given, and murmur then reads stdin.
+  /// The options are `-v` or `--voice`, `-s` or `--speed`, and `-i` or `--interrupt`. The remaining arguments are
+  /// joined with spaces to form the text. If there are none, ``text`` is empty.
+  ///
+  /// - Parameter arguments: The arguments, without the program name.
+  /// - Throws: ``UsageError`` if an option is missing its value, names an unknown voice, or gives a speed that isn't a
+  ///   finite number greater than 0.
   public init(arguments: [String]) throws(UsageError) {
     self.init()
     var args = arguments
@@ -48,7 +66,8 @@ public struct Speech: Codable, Equatable, Sendable {
         }
         speed = s
       case "-i", "--interrupt": interrupt = true
-      case "--":  // everything after is text, even if it looks like a flag
+      // Everything after "--" is text, even an argument that looks like an option.
+      case "--":
         words += args
         args = []
       default: words.append(arg)
@@ -58,53 +77,72 @@ public struct Speech: Codable, Equatable, Sendable {
   }
 }
 
-/// A mistake in the arguments `murmur` was given; it prints the message and exits with 1.
+/// An error in command-line arguments.
 public struct UsageError: Error, CustomStringConvertible, Equatable {
-  /// What was wrong, as `murmur` prints it after "murmur:".
+  /// A message that describes the error, such as "--voice needs a name".
   public let description: String
-  /// An error with this message.
+  /// Creates an error with a message.
+  ///
+  /// - Parameter description: A message that describes the error.
   public init(_ description: String) { self.description = description }
 }
 
-/// Settings murmur doesn't let you change.
+/// Fixed settings that murmur doesn't offer as options.
 public enum Defaults {
-  /// The voice when `--voice` isn't given: the one Kokoro grades best, and the one FluidAudio ships.
+  /// The name of the voice to use when none is given.
+  ///
+  /// It's the voice Kokoro grades highest, and the only one FluidAudio publishes for the Neural Engine.
   public static let voice = "af_heart"
-  /// Kokoro renders 24 kHz mono.
+  /// The sample rate of Kokoro's mono output, in hertz.
   public static let sampleRate = 24_000.0
-  /// murmurd exits after this long with nothing to say; the next `murmur` starts it again.
+  /// The time, in seconds, that murmurd waits with nothing to speak before it exits.
   public static let idleExit: TimeInterval = 10 * 60
-  /// Phrase cache cap, evicting the least recently played first.
+  /// The maximum total size of the phrase cache, in bytes.
   public static let cacheBytes = 32 * 1024 * 1024
 }
 
-/// Where murmur keeps its files.
+/// The locations of murmur's files.
 public enum Paths {
-  /// The user's home folder.
+  /// The current user's home directory.
   public static let home = FileManager.default.homeDirectoryForCurrentUser
-  /// The socket, lock, log and phrase cache: everything murmur can rebuild if it's deleted.
+  /// The directory for files that murmur can re-create, such as the socket, the log and the phrase cache.
   public static let caches = home.appendingPathComponent("Library/Caches/murmur")
-  /// Short on purpose: a unix socket path must fit in 104 bytes.
+  /// The Unix domain socket that murmurd listens on.
+  ///
+  /// The path is kept short because a Unix socket path must fit in 104 bytes.
   public static let socket = caches.appendingPathComponent("murmurd.sock")
-  /// The phrase cache's rendered sentences.
+  /// The directory that holds the phrase cache.
   public static let phrases = caches.appendingPathComponent("phrases")
-  /// murmurd's output; murmur starts it afresh once it passes 1 MB.
+  /// The file that murmurd writes its log to.
   public static let log = caches.appendingPathComponent("murmurd.log")
-  /// The Kokoro CoreML bundle (the 7 .mlmodelc stages, vocab and voice packs).
+  /// The directory of the installed Kokoro Core ML bundle.
+  ///
+  /// The bundle holds the seven compiled model stages, the vocabulary and the voice packs.
   public static let models = home.appendingPathComponent("Library/Application Support/murmur/KokoroBundle")
-  /// The bundle's Neural Engine models, vocab and voice packs.
+  /// The directory in the bundle that holds the Neural Engine models, the vocabulary and the voice packs.
   public static let bundleANE = models.appendingPathComponent("kokoro-82m-coreml/ANE")
-  /// Whether `murmur setup --from` installed a bundle; without one, FluidAudio downloads into `fluidCache`.
+  /// A Boolean value that indicates whether a Kokoro bundle is installed in ``models``.
+  ///
+  /// Without a bundle, FluidAudio downloads the model into ``fluidCache``.
   public static var bundleInstalled: Bool {
     FileManager.default.fileExists(atPath: bundleANE.appendingPathComponent("vocab.json").path)
   }
-  /// FluidAudio's own download cache.
+  /// The directory where FluidAudio caches the models it downloads.
   public static let fluidCache = home.appendingPathComponent(".cache/fluidaudio/Models")
-  /// FluidAudio reads its English pronunciation (G2P) assets from this fixed path on macOS.
+  /// The directory that FluidAudio reads its English grapheme-to-phoneme assets from.
+  ///
+  /// FluidAudio uses this fixed path on macOS.
   public static let g2p = fluidCache.appendingPathComponent("kokoro")
 }
 
-/// Splits text into sentences so the first one plays while the rest are still being rendered.
+/// Splits text into sentences.
+///
+/// A sentence ends at a line break, or at a period, exclamation mark or question mark followed by a space. A period
+/// after an abbreviation such as "e.g." or "Dr." doesn't end a sentence. Speaking sentence by sentence lets the first
+/// one play while the rest are still rendering.
+///
+/// - Parameter text: The text to split.
+/// - Returns: The sentences, with surrounding spaces trimmed and empty ones removed.
 public func sentences(_ text: String) -> [String] {
   var out: [String] = []
   var current = ""
@@ -126,18 +164,31 @@ public func sentences(_ text: String) -> [String] {
   return out.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 }
 
-/// "Use e.g." or "Ask Dr.": a period that doesn't end the sentence.
+/// Returns whether the last word of the text is an abbreviation whose period doesn't end a sentence.
 private func endsInAbbreviation(_ text: String) -> Bool {
   let word = text.split(separator: " ").last.map { $0.trimmingCharacters(in: .punctuationCharacters).lowercased() }
   return word.map(["e.g", "i.e", "vs", "dr", "mr", "mrs", "ms"].contains) ?? false
 }
 
-/// The exact sounds a sentence was rendered with, as part of its cache key: a new pronunciation re-renders it.
+/// Returns a string that identifies a set of pronunciations.
+///
+/// Adding it to a sentence's cache key means that changing a pronunciation renders the sentence again.
+///
+/// - Parameter sounds: The pronunciations, as phonemes by word.
+/// - Returns: The pronunciations sorted by word, so that equal sets give equal strings.
 public func soundsKey(_ sounds: [String: String]) -> String {
   sounds.sorted { $0.key < $1.key }.map { "|\($0.key)=\($0.value)" }.joined()
 }
 
-/// A stable cache key (FNV-1a 64) for one rendered sentence: same text, voice and speed, same audio.
+/// Returns the cache key for a rendered sentence.
+///
+/// The key is the 64-bit FNV-1a hash of the voice, speed and text. Unlike `hashValue`, it's the same in every process.
+///
+/// - Parameters:
+///   - text: The sentence.
+///   - voice: The name of the voice.
+///   - speed: The speaking rate.
+/// - Returns: The hash, in hexadecimal.
 public func cacheKey(_ text: String, voice: String, speed: Float) -> String {
   var hash: UInt64 = 0xcbf2_9ce4_8422_2325
   for byte in "\(voice)|\(speed)|\(text)".utf8 {

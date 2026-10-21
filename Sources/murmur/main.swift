@@ -2,21 +2,28 @@ import Darwin
 import Foundation
 import MurmurCore
 
-/// ANSI styling, only when the stream is a terminal and NO_COLOR is unset (no-color.org).
+/// Styles terminal output with ANSI escape codes.
+///
+/// Styling is on only when the stream is a terminal and the `NO_COLOR` environment variable isn't set, as
+/// [no-color.org](https://no-color.org) asks.
 struct Style {
   let on: Bool
   init(fd: Int32) { on = isatty(fd) == 1 && getenv("NO_COLOR") == nil }
   private func wrap(_ code: String, _ s: String) -> String { on ? "\u{1B}[\(code)m\(s)\u{1B}[0m" : s }
   func bold(_ s: String) -> String { wrap("1", s) }
   func dim(_ s: String) -> String { wrap("2", s) }
-  func accent(_ s: String) -> String { wrap("36", s) }  // cyan: commands and flags
-  func arg(_ s: String) -> String { wrap("33", s) }  // yellow: placeholders
-  func head(_ s: String) -> String { wrap("1;35", s) }  // bold magenta: section titles
+  /// Styles commands and options, in cyan.
+  func accent(_ s: String) -> String { wrap("36", s) }
+  /// Styles placeholders, in yellow.
+  func arg(_ s: String) -> String { wrap("33", s) }
+  /// Styles section titles, in bold magenta.
+  func head(_ s: String) -> String { wrap("1;35", s) }
   func error(_ s: String) -> String { wrap("1;31", s) }
 }
 
+/// Returns the help text.
 func usage(_ st: Style) -> String {
-  // Pads by visible width: the escape codes take no columns.
+  // Pad by visible width, because escape codes take up no columns.
   func row(_ left: String, _ text: String) -> String {
     let visible = left.replacingOccurrences(of: "\u{1B}\\[[0-9;]*m", with: "", options: .regularExpression).count
     return "  " + left + String(repeating: " ", count: max(2, 31 - visible)) + text
@@ -50,23 +57,26 @@ func usage(_ st: Style) -> String {
   ].joined(separator: "\n")
 }
 
+/// Prints an error message and exits with status 1.
 func fail(_ message: String) -> Never {
   let st = Style(fd: 2)
   FileHandle.standardError.write(Data("\(st.error("murmur:")) \(message)\n".utf8))
   exit(1)
 }
 
-/// murmurd sits next to this binary (both come from the same build or install).
+/// Returns the path of murmurd, which is built and installed in the same directory as murmur.
 func daemonPath() -> String {
-  // The executable's real path: argv[0] is just "murmur" when it was found through $PATH.
+  // Use the executable's real path, because argv[0] is just "murmur" when the shell found it through PATH.
   let me = (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).resolvingSymlinksInPath()
   return me.deletingLastPathComponent().appendingPathComponent("murmurd").path
 }
 
-/// Starts murmurd in its own session, detached from this terminal, logging to Paths.log.
+/// Starts murmurd in the background.
+///
+/// The daemon runs in its own session, detached from the terminal, and writes its output to `Paths.log`.
 func spawnDaemon() {
   try? FileManager.default.createDirectory(at: Paths.caches, withIntermediateDirectories: true)
-  // A fresh log once it passes 1 MB: murmurd only appends to it.
+  // murmurd only appends to its log, so start a new one once it's larger than 1 MB.
   if let size = try? Paths.log.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 1 << 20 {
     try? FileManager.default.removeItem(at: Paths.log)
   }
@@ -85,11 +95,13 @@ func spawnDaemon() {
   if status != 0 { fail("couldn't start \(path): \(String(cString: strerror(status)))") }
 }
 
+/// Sends a request to murmurd, starting it first if it isn't running.
 func send(_ request: Request) {
   var fd = connectSocket(Paths.socket.path)
   if fd == nil {
     spawnDaemon()
-    for _ in 0..<60 where fd == nil {  // murmurd listens before it loads the model: this is quick
+    // murmurd listens before it loads the model, so this wait is short.
+    for _ in 0..<60 where fd == nil {
       usleep(50_000)
       fd = connectSocket(Paths.socket.path)
     }
@@ -100,6 +112,9 @@ func send(_ request: Request) {
   close(fd)
 }
 
+/// Installs a Kokoro bundle from a directory.
+///
+/// Without a directory, it prints that the model is downloaded on first use.
 func setup(from dir: String?) {
   let fm = FileManager.default
   guard let dir else {
@@ -113,7 +128,7 @@ func setup(from dir: String?) {
   guard fm.fileExists(atPath: source.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path) else {
     fail("\(source.path) isn't a KokoroBundle (no kokoro-82m-coreml/ANE/vocab.json)")
   }
-  // APFS clones: effectively free, and the source stays untouched.
+  // On APFS, a copy is a clone, which takes no extra space and leaves the source unchanged.
   for (from, to) in [(source, Paths.models), (source.appendingPathComponent("kokoro"), Paths.g2p)] {
     try? fm.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
     try? fm.removeItem(at: to)
@@ -123,6 +138,7 @@ func setup(from dir: String?) {
   print("\(st.accent("✓")) Installed the voice model to \(st.bold(Paths.models.path))")
 }
 
+/// Prints the voice catalog, and marks the installed voices.
 func listVoices() {
   let st = Style(fd: 1)
   var group = ""
@@ -148,6 +164,9 @@ func listVoices() {
   print("\n" + st.dim("\(voiceCatalog.count - missing) installed, \(missing) not. ") + hint)
 }
 
+/// Installs the named voices that aren't installed yet.
+///
+/// The name `--all` installs every voice. It exits with status 1 if any download fails.
 func installVoices(_ names: [String]) async {
   let st = Style(fd: 1)
   let wanted = names == ["--all"] ? voiceCatalog.map(\.name) : names
@@ -177,7 +196,7 @@ case "-h", "--help":
 case "stop":
   send(.stop)
 case "phonemes":
-  // The phonemizer lives with the model in murmurd; run it once there.
+  // The phonemizer is part of the model, which only murmurd loads, so run murmurd to print the phonemes.
   let words = Array(args.dropFirst())
   guard !words.isEmpty else { fail("phonemes needs text") }
   let argv: [UnsafeMutablePointer<CChar>?] = ([daemonPath(), "--phonemes"] + words).map { strdup($0) } + [nil]

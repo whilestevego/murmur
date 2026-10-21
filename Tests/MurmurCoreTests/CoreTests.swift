@@ -92,7 +92,7 @@ final class PronunciationTests: XCTestCase {
     XCTAssertEqual(pronounce("Both repos, one monorepo.", Pronunciations.defaults), "Both reepos, one mono reepo.")
   }
 
-  // prepare: the whole pipeline, cleanup then respellings then sentences then sounds.
+  // These tests cover prepare, which runs normalization, respellings, sentence splitting and misaki's rules in turn.
   func testRespelledNamesArentSplitFirst() {
     let said = prepare("Check macOS, GraphQL and TodoWrite.", Pronunciations.defaults, Lexicon()).map(\.text)
     XCTAssertEqual(said, ["Check mac O S, graph Q L and to do write."])
@@ -100,13 +100,15 @@ final class PronunciationTests: XCTestCase {
 
   func testSoundEntriesBecomeSoundsNotText() {
     let out = prepare("Open GitHub. Rebase it.", ["GitHub": "/ɡˈɪthʌb/", "rebase": "/ɹˈibˌAs/"], Lexicon())
-    XCTAssertEqual(out.map(\.text), ["Open GitHub.", "Rebase it."])  // a known name, so not "Git Hub"
-    XCTAssertEqual(out.map(\.sounds), [["GitHub": "ɡˈɪthʌb"], ["Rebase": "ɹˈibˌAs"]])  // each sentence, its own words
+    // GitHub has an exact pronunciation, so it isn't split into "Git Hub".
+    XCTAssertEqual(out.map(\.text), ["Open GitHub.", "Rebase it."])
+    // Each sentence gets the phonemes for its own words only.
+    XCTAssertEqual(out.map(\.sounds), [["GitHub": "ɡˈɪthʌb"], ["Rebase": "ɹˈibˌAs"]])
   }
 }
 
 final class NormalizeTests: XCTestCase {
-  // The rest is scored against NeMo's cases: make nemo.
+  // `make nemo` scores the remaining rules against NeMo's test cases.
   func testTechText() {
     let cases: [(String, String)] = [
       ("It’s “done”.", "It's \"done\"."),
@@ -168,7 +170,9 @@ final class NormalizeTests: XCTestCase {
     for (input, spoken) in cases { XCTAssertEqual(normalize(input), spoken, input) }
   }
 
-  /// Sentences end at line breaks, so no rule may join two lines or add one: checked on every NeMo case.
+  /// Tests that normalization keeps the line breaks in every NeMo case.
+  ///
+  /// Sentences end at line breaks, so no rule may remove or add one.
   func testLineBreaksSurvive() throws {
     let nemo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../nemo")
     let files = try FileManager.default.contentsOfDirectory(at: nemo, includingPropertiesForKeys: nil).filter {
@@ -211,7 +215,8 @@ final class LexiconTests: XCTestCase {
     XCTAssertEqual(s["PR's"], "pˈi ˈɑɹz")
     XCTAssertEqual(s["APIs"], "ˈA pˈi ˈIz")
     XCTAssertEqual(s["built-in"], "bˈɪlt ˈɪn")
-    XCTAssertNil(s["today"])  // known words are left to Kokoro
+    // Words in the dictionary are left to Kokoro.
+    XCTAssertNil(s["today"])
     let mine = lexicon.sounds(for: "Rebase, then rebased and rebasing", mine: ["rebase": "ɹˈibˌAs"])
     XCTAssertEqual(mine["Rebase"], "ɹˈibˌAs")
     XCTAssertEqual(mine["rebased"], "ɹˈibˌAst")
@@ -228,8 +233,10 @@ final class LexiconTests: XCTestCase {
     let lexicon = Lexicon(lower: ["story": "stˈɔɹi", "built": "bˈɪlt"], cased: ["A": "ˈA", "P": "pˈi", "I": "ˈI"])
     let s = lexicon.sounds(for: "stories, API, built-zzz")
     XCTAssertEqual(s["stories"], "stˈɔɹiz")
-    XCTAssertNil(s["API"])  // FluidAudio spells initialisms itself
-    XCTAssertNil(s["built-zzz"])  // a part it can't work out: left to FluidAudio
+    // FluidAudio spells out initialisms by itself.
+    XCTAssertNil(s["API"])
+    // A compound with a part the rules can't work out is left to FluidAudio.
+    XCTAssertNil(s["built-zzz"])
   }
 
   func testEntryIgnoresCase() {
@@ -239,7 +246,10 @@ final class LexiconTests: XCTestCase {
     XCTAssertNil(lexicon.entry("p"))
   }
 
-  /// If FluidAudio changed its cache's format, the lexicon would come back empty and these rules would quietly stop.
+  /// Tests that FluidAudio's dictionary still loads.
+  ///
+  /// If FluidAudio changed the format of its cache, the lexicon would be empty, and misaki's rules would stop working
+  /// without an error.
   func testLoadsFluidAudiosList() throws {
     let lists = [Paths.models.appendingPathComponent("kokoro"), Paths.g2p].map {
       $0.appendingPathComponent("us_lexicon_cache.json")
@@ -289,7 +299,9 @@ final class ArgumentTests: XCTestCase {
 }
 
 final class NormalizeSafetyTests: XCTestCase {
-  /// `\d` matches any Unicode digit, but `Int` only reads ASCII ones: these crashed murmurd.
+  /// Tests that normalization leaves digits other than 0 to 9 alone.
+  ///
+  /// In a regular expression, `\d` matches any Unicode digit, but `Int` reads only ASCII digits.
   func testOtherDigitsAreLeftAlone() {
     for text in ["٣:30", "١:00:00", "１:05", "the ٣0s", "٣Q22", "₩٣"] {
       XCTAssertFalse(normalize(text).isEmpty, text)
