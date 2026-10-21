@@ -14,14 +14,20 @@ public struct VoiceInfo: Equatable, Sendable {
 /// from Kokoro's VOICES.md (https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
 public let voiceCatalog: [VoiceInfo] = {
   let groups: [(String, String, KeyValuePairs<String, String>)] = [
-    ("af", "American female", [
-      "alloy": "C", "aoede": "C+", "bella": "A-", "heart": "A", "jessica": "D", "kore": "C+",
-      "nicole": "B-", "nova": "C", "river": "D", "sarah": "C+", "sky": "C-",
-    ]),
-    ("am", "American male", [
-      "adam": "F+", "echo": "D", "eric": "D", "fenrir": "C+", "liam": "D", "michael": "C+",
-      "onyx": "D", "puck": "C+", "santa": "D-",
-    ]),
+    (
+      "af", "American female",
+      [
+        "alloy": "C", "aoede": "C+", "bella": "A-", "heart": "A", "jessica": "D", "kore": "C+",
+        "nicole": "B-", "nova": "C", "river": "D", "sarah": "C+", "sky": "C-",
+      ]
+    ),
+    (
+      "am", "American male",
+      [
+        "adam": "F+", "echo": "D", "eric": "D", "fenrir": "C+", "liam": "D", "michael": "C+",
+        "onyx": "D", "puck": "C+", "santa": "D-",
+      ]
+    ),
     ("bf", "British female", ["alice": "D", "emma": "B-", "isabella": "C", "lily": "D"]),
     ("bm", "British male", ["daniel": "D", "fable": "C", "george": "C", "lewis": "D+"]),
   ]
@@ -49,7 +55,9 @@ public enum VoicePacks {
   }
 
   public enum InstallError: Error, CustomStringConvertible {
-    case unknown(String), download(String), badSize(Int)
+    case unknown(String)
+    case download(String)
+    case badSize(Int)
     public var description: String {
       switch self {
       case .unknown(let name): return "unknown voice \(name) (see: murmur voices)"
@@ -67,7 +75,9 @@ public enum VoicePacks {
     let data: Data
     do {
       let (body, response) = try await URLSession.shared.data(for: request)
-      if let http = response as? HTTPURLResponse, http.statusCode != 200 { throw InstallError.download("HTTP \(http.statusCode)") }
+      if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+        throw InstallError.download("HTTP \(http.statusCode)")
+      }
       data = body
     } catch let error as InstallError {
       throw error

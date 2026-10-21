@@ -20,7 +20,9 @@ public struct Lexicon: Sendable {
       guard let data = try? Data(contentsOf: dir.appendingPathComponent("us_lexicon_cache.json")),
         let json = try? JSONSerialization.jsonObject(with: data) as? [String: [String: [String]]]
       else { continue }
-      return Lexicon(lower: (json["lower"] ?? [:]).mapValues { $0.joined() }, cased: (json["caseSensitive"] ?? [:]).mapValues { $0.joined() })
+      return Lexicon(
+        lower: (json["lower"] ?? [:]).mapValues { $0.joined() },
+        cased: (json["caseSensitive"] ?? [:]).mapValues { $0.joined() })
     }
     return Lexicon()
   }
@@ -48,12 +50,15 @@ public struct Lexicon: Sendable {
   }
 
   private static let keyScalars = CharacterSet.letters.union(.decimalDigits).union(CharacterSet(charactersIn: "'"))
-  private static let wordRegex = try! NSRegularExpression(pattern: "[\\p{L}\\p{N}][\\p{L}\\p{N}-]*(?:'[\\p{L}\\p{N}]+)*")
+  private static let wordRegex = try! NSRegularExpression(
+    pattern: "[\\p{L}\\p{N}][\\p{L}\\p{N}-]*(?:'[\\p{L}\\p{N}]+)*")
 
   /// Words as FluidAudio splits them: letters and digits, with inner apostrophes and hyphens.
   static func words(_ text: String) -> [String] {
     let source = text as NSString
-    return wordRegex.matches(in: text, range: NSRange(location: 0, length: source.length)).map { source.substring(with: $0.range) }
+    return wordRegex.matches(in: text, range: NSRange(location: 0, length: source.length)).map {
+      source.substring(with: $0.range)
+    }
   }
 
   /// `PRs`, `API's`: letters to spell, plus an ending.
@@ -115,9 +120,13 @@ public struct Lexicon: Sendable {
     let stem: String
     if !word.hasSuffix("dd"), lookup(String(word.dropLast()), mine) != nil {
       stem = String(word.dropLast())
-    } else if word.count > 4 && word.hasSuffix("ed") && !word.hasSuffix("eed"), lookup(String(word.dropLast(2)), mine) != nil {
+    } else if word.count > 4 && word.hasSuffix("ed") && !word.hasSuffix("eed"),
+      lookup(String(word.dropLast(2)), mine) != nil
+    {
       stem = String(word.dropLast(2))
-    } else if word.range(of: "([bdgklmnprtvz])\\1ed$", options: .regularExpression) != nil, lookup(String(word.dropLast(3)), mine) != nil {
+    } else if word.range(of: "([bdgklmnprtvz])\\1ed$", options: .regularExpression) != nil,
+      lookup(String(word.dropLast(3)), mine) != nil
+    {
       stem = String(word.dropLast(3))  // stopped: like stem_ing's stopping, which misaki's stem_ed lacks
     } else {
       return nil

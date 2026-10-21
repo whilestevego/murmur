@@ -1,5 +1,6 @@
 import Darwin
 import XCTest
+
 @testable import MurmurCore
 
 final class SocketTests: XCTestCase {
@@ -72,7 +73,10 @@ final class SocketTests: XCTestCase {
   /// murmurd sets a receive timeout: a client that never closes gets what it sent so far.
   func testReadReturnsWhatArrivedOnTimeout() {
     let (reader, writer) = pair()
-    defer { close(reader); close(writer) }
+    defer {
+      close(reader)
+      close(writer)
+    }
     var timeout = timeval(tv_sec: 0, tv_usec: 200_000)
     setsockopt(reader, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
     writeAll(writer, Data(#"{"sto"#.utf8))

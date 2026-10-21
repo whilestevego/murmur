@@ -40,7 +40,8 @@ actor Speaker {
     engine.attach(player)
     engine.connect(player, to: engine.mainMixerNode, format: format)
     // The engine stops itself when the output device changes (headphones, AirPlay, a display's speakers).
-    NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
+    let center = NotificationCenter.default
+    center.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
       Task { await self?.outputChanged() }
     }
   }
@@ -68,12 +69,14 @@ actor Speaker {
 
   /// Every caller awaits the same load, so a request arriving mid-load doesn't start a second one.
   private func loadedManager() async throws -> KokoroAneManager {
-    let task = loading ?? Task {
-      log("loading Kokoro (\(Paths.bundleInstalled ? Paths.models.path : "download from HuggingFace"))")
-      let m = try await makeKokoro()
-      log("Kokoro ready")
-      return m
-    }
+    let task =
+      loading
+      ?? Task {
+        log("loading Kokoro (\(Paths.bundleInstalled ? Paths.models.path : "download from HuggingFace"))")
+        let m = try await makeKokoro()
+        log("Kokoro ready")
+        return m
+      }
     loading = task
     do {
       return try await task.value
@@ -117,7 +120,9 @@ actor Speaker {
 
   /// One render at a time, each after the last: the sounds set for a sentence are still set when it renders, even if
   /// an interrupting request's loop is rendering too.
-  private func render(_ sentence: String, _ sounds: [String: String], voice: String, speed: Float) async throws -> [Float] {
+  private func render(_ sentence: String, _ sounds: [String: String], voice: String, speed: Float) async throws
+    -> [Float]
+  {
     let previous = rendering
     let task = Task {
       _ = try? await previous?.value  // a failed render doesn't hold up the next
@@ -154,7 +159,9 @@ actor Speaker {
 
   /// Queues samples on the running player (see `startPlayer`).
   private func play(_ samples: [Float]) {
-    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)) else { return }
+    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)) else {
+      return
+    }
     buffer.frameLength = buffer.frameCapacity
     samples.withUnsafeBufferPointer { buffer.floatChannelData![0].update(from: $0.baseAddress!, count: samples.count) }
     pending += 1

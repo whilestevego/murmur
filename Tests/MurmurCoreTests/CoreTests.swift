@@ -1,5 +1,6 @@
 import ObjCTry
 import XCTest
+
 @testable import MurmurCore
 
 final class CoreTests: XCTestCase {
@@ -37,7 +38,8 @@ final class CoreTests: XCTestCase {
   }
 
   func testObjCTryCatchesRaisedExceptions() {
-    XCTAssertEqual(objcTry { NSException(name: .genericException, reason: "no IO cycle").raise() }?.reason, "no IO cycle")
+    XCTAssertEqual(
+      objcTry { NSException(name: .genericException, reason: "no IO cycle").raise() }?.reason, "no IO cycle")
     XCTAssertNil(objcTry {})
   }
 
@@ -83,7 +85,9 @@ final class PronunciationTests: XCTestCase {
 
   func testDefaultsFixTheKnownCases() {
     XCTAssertEqual(pronounce("Check the ID in the JSON.", Pronunciations.defaults), "Check the I D in the Jason.")
-    XCTAssertEqual(pronounce("Todo: update the todos and the to-do list.", Pronunciations.defaults), "To do: update the to dos and the to do list.")
+    XCTAssertEqual(
+      pronounce("Todo: update the todos and the to-do list.", Pronunciations.defaults),
+      "To do: update the to dos and the to do list.")
     XCTAssertEqual(pronounce("Run /goto, then GOTO.", Pronunciations.defaults), "Run /go to, then go to.")
     XCTAssertEqual(pronounce("Both repos, one monorepo.", Pronunciations.defaults), "Both reepos, one mono reepo.")
   }
@@ -115,10 +119,16 @@ final class NormalizeTests: XCTestCase {
       ("on 2026-10-19, July 4 or 17 may 2010", "on October 19th 20 26, July 4th or the 17th of May 20 10"),
       ("we may 5 times", "we may 5 times"),
       ("1,000 users, 2048 tokens, in 1994", "1000 users, 2048 tokens, in 19 94"),
-      ("$5, $1, $5.50, $0.05, $2M, $20/mo", "5 dollars, 1 dollar, 5 dollars 50 cents, 5 cents, 2 million dollars, 20 dollars per month"),
+      (
+        "$5, $1, $5.50, $0.05, $2M, $20/mo",
+        "5 dollars, 1 dollar, 5 dollars 50 cents, 5 cents, 2 million dollars, 20 dollars per month"
+      ),
       ("50% at 10:30, 3:05, 9:00 or 1:49 p.m.", "50 percent at 10 30, 3 oh 5, 9 o'clock or 1 49 PM"),
       ("pages 10-20, -3", "pages 10 to 20, minus 3"),
-      ("200ms, 1 MB, 5s, 2x, 12kg/kg, 2°C", "200 milliseconds, 1 megabyte, 5 seconds, 2 x, 12 kilograms per kilogram, 2 degrees Celsius"),
+      (
+        "200ms, 1 MB, 5s, 2x, 12kg/kg, 2°C",
+        "200 milliseconds, 1 megabyte, 5 seconds, 2 x, 12 kilograms per kilogram, 2 degrees Celsius"
+      ),
       ("H264 on x86, the 21st, ab9453", "H 264 on x 86, the 21st, ab 9 4 5 3"),
       ("1/2, 2 1/2, 3/4, 24/7", "1 half, 2 and a half, 3 quarters, 24 7"),
       ("the 1980s and '90s", "the 19 eighties and nineties"),
@@ -142,7 +152,9 @@ final class NormalizeTests: XCTestCase {
     XCTAssertEqual(ordinalWords(32), "thirty second")
     XCTAssertEqual(ordinalWords(2007), "two thousand seventh")
     XCTAssertEqual(ordinalWords(12), "twelfth")
-    XCTAssertEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 111].map(ordinalSuffix), ["st", "nd", "rd", "th", "th", "th", "th", "st", "nd", "th"])
+    XCTAssertEqual(
+      [1, 2, 3, 4, 11, 12, 13, 21, 22, 111].map(ordinalSuffix),
+      ["st", "nd", "rd", "th", "th", "th", "th", "st", "nd", "th"])
     XCTAssertEqual([roman("IV"), roman("XL"), roman("MIX"), roman("II")], [4, 40, nil, 2])
   }
 
@@ -159,18 +171,26 @@ final class NormalizeTests: XCTestCase {
   /// Sentences end at line breaks, so no rule may join two lines or add one: checked on every NeMo case.
   func testLineBreaksSurvive() throws {
     let nemo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../nemo")
-    let files = try FileManager.default.contentsOfDirectory(at: nemo, includingPropertiesForKeys: nil).filter { $0.pathExtension == "txt" }
-    let written = try files.flatMap { try String(contentsOf: $0, encoding: .utf8).split(separator: "\n").compactMap { $0.split(separator: "~").first } }
+    let files = try FileManager.default.contentsOfDirectory(at: nemo, includingPropertiesForKeys: nil).filter {
+      $0.pathExtension == "txt"
+    }
+    let written = try files.flatMap {
+      try String(contentsOf: $0, encoding: .utf8).split(separator: "\n").compactMap { $0.split(separator: "~").first }
+    }
     XCTAssertGreaterThan(written.count, 400)
     for w in written {
-      XCTAssertEqual(normalize("one\n\(w)\ntwo").split(separator: "\n", omittingEmptySubsequences: false).count, 3, String(w))
+      XCTAssertEqual(
+        normalize("one\n\(w)\ntwo").split(separator: "\n", omittingEmptySubsequences: false).count, 3, String(w))
     }
   }
 }
 
 final class LexiconTests: XCTestCase {
   let lexicon = Lexicon(
-    lower: ["today": "tədˈA", "base": "bˈAs", "fix": "fˈɪks", "stop": "stˈɑp", "wait": "wˈAt", "add": "ˈæd", "built": "bˈɪlt", "in": "ˈɪn", "apis": "ˈApɪs"],
+    lower: [
+      "today": "tədˈA", "base": "bˈAs", "fix": "fˈɪks", "stop": "stˈɑp", "wait": "wˈAt", "add": "ˈæd", "built": "bˈɪlt",
+      "in": "ˈɪn", "apis": "ˈApɪs",
+    ],
     cased: ["P": "pˈi", "R": "ˈɑɹ", "A": "ˈA", "I": "ˈI"])
 
   func testMisakiEndings() {
@@ -221,7 +241,9 @@ final class LexiconTests: XCTestCase {
 
   /// If FluidAudio changed its cache's format, the lexicon would come back empty and these rules would quietly stop.
   func testLoadsFluidAudiosList() throws {
-    let lists = [Paths.models.appendingPathComponent("kokoro"), Paths.g2p].map { $0.appendingPathComponent("us_lexicon_cache.json") }
+    let lists = [Paths.models.appendingPathComponent("kokoro"), Paths.g2p].map {
+      $0.appendingPathComponent("us_lexicon_cache.json")
+    }
     try XCTSkipUnless(lists.contains { FileManager.default.fileExists(atPath: $0.path) }, "the model isn't installed")
     let loaded = Lexicon.load()
     XCTAssertGreaterThan(loaded.lower.count, 10_000)
@@ -246,7 +268,9 @@ final class ArgumentTests: XCTestCase {
     XCTAssertEqual(
       try speech("-v", "bm_george", "Hi", "--speed", "1.5", "-i"),
       Speech(text: "Hi", voice: "bm_george", speed: 1.5, interrupt: true))
-    XCTAssertEqual(try speech("--voice", "bf_emma", "-s", "0.8", "--interrupt"), Speech(voice: "bf_emma", speed: 0.8, interrupt: true))
+    XCTAssertEqual(
+      try speech("--voice", "bf_emma", "-s", "0.8", "--interrupt"),
+      Speech(voice: "bf_emma", speed: 0.8, interrupt: true))
     XCTAssertEqual(try speech(), Speech())
   }
 

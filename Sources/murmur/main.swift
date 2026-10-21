@@ -21,14 +21,16 @@ func usage(_ st: Style) -> String {
     let visible = left.replacingOccurrences(of: "\u{1B}\\[[0-9;]*m", with: "", options: .regularExpression).count
     return "  " + left + String(repeating: " ", count: max(2, 31 - visible)) + text
   }
-  return ([
+  return [
     "\(st.bold("murmur")) \(st.dim("·")) speak text with Kokoro on the Apple Neural Engine",
     "",
     st.head("USAGE"),
     row(st.accent("murmur") + " " + st.arg("[options] <text…>"), "speak text, or pipe it on stdin; returns at once"),
     row(st.accent("murmur stop"), "stop speaking and drop anything queued"),
     row(st.accent("murmur voices"), "list the 28 voices with Kokoro's grades; ✓ marks the installed ones"),
-    row(st.accent("murmur voices install") + " " + st.arg("NAME…"), "install voices " + st.dim("(or --all; a missing voice also installs on first use)")),
+    row(
+      st.accent("murmur voices install") + " " + st.arg("NAME…"),
+      "install voices " + st.dim("(or --all; a missing voice also installs on first use)")),
     row(st.accent("murmur phonemes") + " " + st.arg("<text…>"), "show how text will be pronounced"),
     row(st.accent("murmur setup") + " " + st.arg("[--from DIR]"), "install the voice model"),
     "",
@@ -45,7 +47,7 @@ func usage(_ st: Style) -> String {
     "  " + st.dim("$") + " murmur voices install af_nicole bm_lewis",
     "",
     st.dim("Logs: \(Paths.log.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))"),
-  ]).joined(separator: "\n")
+  ].joined(separator: "\n")
 }
 
 func fail(_ message: String) -> Never {
@@ -101,7 +103,9 @@ func setup(from dir: String?) {
   let fm = FileManager.default
   guard let dir else {
     let st = Style(fd: 1)
-    print("\(st.accent("→")) No \(st.accent("--from")) given: the model \(st.dim("(~110 MB)")) downloads from HuggingFace on first use.")
+    print(
+      "\(st.accent("→")) No \(st.accent("--from")) given: the model \(st.dim("(~110 MB)")) downloads from HuggingFace on first use."
+    )
     return
   }
   let source = URL(fileURLWithPath: (dir as NSString).expandingTildeInPath)
@@ -130,12 +134,17 @@ func listVoices() {
     let mark = installed ? st.accent("✓") : st.dim("·")
     let name = v.name.padding(toLength: 13, withPad: " ", startingAt: 0)
     let label = v.label.padding(toLength: 9, withPad: " ", startingAt: 0)
-    print("  \(mark) \(installed ? st.bold(name) : st.dim(name)) \(st.dim(label)) \(v.grade)"
-      + (v.name == Defaults.voice ? String(repeating: " ", count: 4 - v.grade.count) + st.arg("default") : ""))
+    print(
+      "  \(mark) \(installed ? st.bold(name) : st.dim(name)) \(st.dim(label)) \(v.grade)"
+        + (v.name == Defaults.voice ? String(repeating: " ", count: 4 - v.grade.count) + st.arg("default") : ""))
   }
   let missing = voiceCatalog.filter { !VoicePacks.isInstalled($0.name) }.count
-  print("\n" + st.dim("\(voiceCatalog.count - missing) installed, \(missing) not. ")
-    + (missing > 0 ? st.dim("Install with ") + st.accent("murmur voices install NAME…") + st.dim(" or ") + st.accent("--all") + st.dim(", or just use one.") : ""))
+  let hint =
+    missing == 0
+    ? ""
+    : st.dim("Install with ") + st.accent("murmur voices install NAME…") + st.dim(" or ") + st.accent("--all")
+      + st.dim(", or just use one.")
+  print("\n" + st.dim("\(voiceCatalog.count - missing) installed, \(missing) not. ") + hint)
 }
 
 func installVoices(_ names: [String]) async {

@@ -63,11 +63,16 @@ private func loneSymbols(_ text: String) -> String {
   t = replace(t, #"~(?=\d)"#) { _ in "about " }
   t = replace(t, #"#(\d+)"#) { "number \($0[1])" }
   t = replace(t, #"(?<=\d)\h?\*\h?(?=\d)"#) { _ in " times " }
-  let names = ["$": "dollar", "€": "euro", "£": "pound", "¥": "yen", "₩": "won", "%": "percent", "#": "hash", "@": "at", "&": "and"]
+  let names = [
+    "$": "dollar", "€": "euro", "£": "pound", "¥": "yen", "₩": "won", "%": "percent", "#": "hash", "@": "at",
+    "&": "and",
+  ]
   t = replace(t, #"[$€£¥₩%#@&]"#) { g in names[g[0]].map { " \($0) " } }
   t = replace(t, #"(?<!\S)/(?!\w)"#) { _ in " slash " }
   // upgrade/update → "upgrade slash update"; and/or → "and or"
-  return replace(t, #"\b([A-Za-z]+)\h?/\h?(?=[A-Za-z])"#) { g in g[1].lowercased() == "and" ? "and " : "\(g[1]) slash " }
+  return replace(t, #"\b([A-Za-z]+)\h?/\h?(?=[A-Za-z])"#) { g in
+    g[1].lowercased() == "and" ? "and " : "\(g[1]) slash "
+  }
 }
 
 private func squeezeSpaces(_ text: String) -> String {
@@ -96,7 +101,9 @@ func replace(_ text: String, _ pattern: String, _ f: ([String]) -> String?) -> S
   var out = ""
   var last = 0
   for m in regex.matches(in: text, range: NSRange(location: 0, length: source.length)) {
-    let groups = (0..<m.numberOfRanges).map { m.range(at: $0).location == NSNotFound ? "" : source.substring(with: m.range(at: $0)) }
+    let groups = (0..<m.numberOfRanges).map {
+      m.range(at: $0).location == NSNotFound ? "" : source.substring(with: m.range(at: $0))
+    }
     out += source.substring(with: NSRange(location: last, length: m.range.location - last))
     out += f(groups) ?? groups[0]
     last = m.range.location + m.range.length
