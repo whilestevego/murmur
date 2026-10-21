@@ -61,6 +61,10 @@ actor Speaker {
   init() {
     engine.attach(player)
     engine.connect(player, to: engine.mainMixerNode, format: format)
+    // The engine stops itself when the output device changes (headphones, AirPlay, a display's speakers).
+    NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
+      Task { await self?.outputChanged() }
+    }
   }
 
   func handle(_ request: Request) {
@@ -180,6 +184,12 @@ actor Speaker {
     player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in
       Task { await self.played() }
     }
+  }
+
+  /// Drops what was playing on the old output, so `pending` drains; the next sentence starts the engine on the new one.
+  private func outputChanged() {
+    log("audio output changed")
+    player.stop()  // fires the scheduled buffers' completions
   }
 
   private func played() {
