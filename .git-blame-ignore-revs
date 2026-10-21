@@ -1,0 +1,5 @@
+# Commits git blame skips: whole-file reformats. GitHub reads this file; locally, run once:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# chore: format the code with swift-format (#11)
+e5d6cff5364bf1f2b34132db7dca756f7feddbbe
