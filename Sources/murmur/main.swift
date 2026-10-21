@@ -160,7 +160,7 @@ func installVoices(_ names: [String]) async {
   if failed { exit(1) }
 }
 
-var args = Array(CommandLine.arguments.dropFirst())
+let args = Array(CommandLine.arguments.dropFirst())
 switch args.first {
 case "-h", "--help":
   print(usage(Style(fd: 1)))
@@ -179,30 +179,11 @@ case "setup":
   let i = args.firstIndex(of: "--from")
   setup(from: i.flatMap { args.indices.contains($0 + 1) ? args[$0 + 1] : nil })
 default:
-  var request = Speech()
-  var words: [String] = []
-  while !args.isEmpty {
-    let arg = args.removeFirst()
-    switch arg {
-    case "-v", "--voice":
-      guard !args.isEmpty else { fail("--voice needs a name") }
-      request.voice = args.removeFirst()
-      guard voiceCatalog.contains(where: { $0.name == request.voice }) else {
-        fail("unknown voice \(request.voice) (see: murmur voices)")
-      }
-    case "-s", "--speed":
-      guard let s = args.isEmpty ? nil : Float(args.removeFirst()), s > 0 else { fail("--speed needs a number") }
-      request.speed = s
-    case "-i", "--interrupt": request.interrupt = true
-    case "--":  // everything after is text, even if it looks like a flag
-      words += args
-      args = []
-    default: words.append(arg)
-    }
+  var request: Speech
+  do { request = try Speech(arguments: args) } catch { fail(error.description) }
+  if request.text.isEmpty && isatty(0) == 0 {
+    request.text = String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
   }
-  request.text = words.isEmpty && isatty(0) == 0
-    ? String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
-    : words.joined(separator: " ")
   guard !request.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
     FileHandle.standardError.write(Data((usage(Style(fd: 2)) + "\n").utf8))
     exit(2)

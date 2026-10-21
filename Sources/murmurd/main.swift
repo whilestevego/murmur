@@ -16,40 +16,11 @@ func makeKokoro() async throws -> KokoroAneManager {
   return m
 }
 
-/// Phrase cache: one raw Float32 file per rendered sentence, least recently played evicted first.
-enum PhraseCache {
-  static func url(_ key: String) -> URL { Paths.phrases.appendingPathComponent("\(key).f32") }
-
-  static func get(_ key: String) -> [Float]? {
-    guard let data = try? Data(contentsOf: url(key)), !data.isEmpty else { return nil }
-    try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url(key).path)
-    return [Float](unsafeUninitializedCapacity: data.count / MemoryLayout<Float>.stride) { buffer, count in
-      count = data.copyBytes(to: buffer) / MemoryLayout<Float>.stride
-    }
-  }
-
-  static func put(_ key: String, _ samples: [Float]) {
-    let fm = FileManager.default
-    try? fm.createDirectory(at: Paths.phrases, withIntermediateDirectories: true)
-    try? samples.withUnsafeBufferPointer { Data(buffer: $0) }.write(to: url(key), options: .atomic)
-    let keys: Set<URLResourceKey> = [.contentModificationDateKey, .fileSizeKey]
-    guard let files = try? fm.contentsOfDirectory(at: Paths.phrases, includingPropertiesForKeys: Array(keys)) else { return }
-    let entries = files.compactMap { f -> (URL, Date, Int)? in
-      guard let v = try? f.resourceValues(forKeys: keys) else { return nil }
-      return (f, v.contentModificationDate ?? .distantPast, v.fileSize ?? 0)
-    }.sorted { $0.1 > $1.1 }
-    var total = 0
-    for (file, _, size) in entries {
-      total += size
-      if total > Defaults.cacheBytes { try? fm.removeItem(at: file) }
-    }
-  }
-}
-
 actor Speaker {
   private var loading: Task<KokoroAneManager, Error>?
   private let engine = AVAudioEngine()
   private let player = AVAudioPlayerNode()
+  private let cache = PhraseCache()
   private let format = AVAudioFormat(standardFormatWithSampleRate: Defaults.sampleRate, channels: 1)!
   /// Bumped by stop/interrupt: a speaking loop from an older generation stops scheduling.
   private var generation = 0
@@ -126,12 +97,12 @@ actor Speaker {
     for (sentence, sounds) in prepare(request.text, Pronunciations.load(), lexicon) {
       guard gen == generation else { return }
       let key = cacheKey(sentence + soundsKey(sounds), voice: request.voice, speed: request.speed)
-      var samples = PhraseCache.get(key)
+      var samples = cache.get(key)
       if samples == nil {
         do {
           let out = try await render(sentence, sounds, voice: request.voice, speed: request.speed)
           samples = out
-          PhraseCache.put(key, out)
+          cache.put(key, out)
         } catch {
           log("synthesis failed: \(error)")
           return

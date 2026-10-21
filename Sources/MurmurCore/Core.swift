@@ -21,6 +21,36 @@ public struct Speech: Codable, Equatable, Sendable {
     self.speed = speed
     self.interrupt = interrupt
   }
+
+  /// `murmur`'s options and words; empty text means none were given (murmur then reads stdin).
+  public init(arguments: [String]) throws(UsageError) {
+    self.init()
+    var args = arguments
+    var words: [String] = []
+    while !args.isEmpty {
+      let arg = args.removeFirst()
+      switch arg {
+      case "-v", "--voice":
+        guard !args.isEmpty else { throw UsageError("--voice needs a name") }
+        voice = args.removeFirst()
+        guard voiceCatalog.contains(where: { $0.name == voice }) else { throw UsageError("unknown voice \(voice) (see: murmur voices)") }
+      case "-s", "--speed":
+        guard let s = args.isEmpty ? nil : Float(args.removeFirst()), s > 0 else { throw UsageError("--speed needs a number") }
+        speed = s
+      case "-i", "--interrupt": interrupt = true
+      case "--":  // everything after is text, even if it looks like a flag
+        words += args
+        args = []
+      default: words.append(arg)
+      }
+    }
+    text = words.joined(separator: " ")
+  }
+}
+
+public struct UsageError: Error, CustomStringConvertible, Equatable {
+  public let description: String
+  public init(_ description: String) { self.description = description }
 }
 
 public enum Defaults {
@@ -67,13 +97,19 @@ public func sentences(_ text: String) -> [String] {
     }
     current.append(c)
     let next = i + 1 < chars.count ? chars[i + 1] : " "
-    if ".!?".contains(c) && (next == " " || next == "\n") {
+    if ".!?".contains(c) && (next == " " || next == "\n") && !(c == "." && endsInAbbreviation(current)) {
       out.append(current)
       current = ""
     }
   }
   out.append(current)
   return out.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+}
+
+/// "Use e.g." or "Ask Dr.": a period that doesn't end the sentence.
+private func endsInAbbreviation(_ text: String) -> Bool {
+  let word = text.split(separator: " ").last.map { $0.trimmingCharacters(in: .punctuationCharacters).lowercased() }
+  return word.map(["e.g", "i.e", "vs", "dr", "mr", "mrs", "ms"].contains) ?? false
 }
 
 /// The exact sounds a sentence was rendered with, as part of its cache key: a new pronunciation re-renders it.
