@@ -1,13 +1,20 @@
 import Foundation
 
-/// Phrase cache: one raw Float32 file per rendered sentence, least recently played evicted first.
+/// A disk cache of rendered sentences.
+///
+/// Each sentence is stored as a file of raw 32-bit float samples. When the cache grows past its limit, the least
+/// recently used files are removed first.
 public struct PhraseCache: Sendable {
-  /// The folder holding one `<key>.f32` file per phrase.
+  /// The directory that holds a `<key>.f32` file for each sentence.
   public let directory: URL
-  /// Total size kept, in bytes.
+  /// The maximum total size of the cache, in bytes.
   public let limit: Int
 
-  /// murmurd's cache by default; the tests point it at a temp folder.
+  /// Creates a cache.
+  ///
+  /// - Parameters:
+  ///   - directory: The directory to store the files in. It's created when the first sentence is cached.
+  ///   - limit: The maximum total size of the cache, in bytes.
   public init(directory: URL = Paths.phrases, limit: Int = Defaults.cacheBytes) {
     self.directory = directory
     self.limit = limit
@@ -15,7 +22,12 @@ public struct PhraseCache: Sendable {
 
   func url(_ key: String) -> URL { directory.appendingPathComponent("\(key).f32") }
 
-  /// The samples cached under `key`, or nil; a hit counts as played, for eviction.
+  /// Returns the cached samples for a sentence.
+  ///
+  /// Reading an entry marks it as recently used, so it's evicted last.
+  ///
+  /// - Parameter key: The sentence's cache key, from ``cacheKey(_:voice:speed:)``.
+  /// - Returns: The samples, or `nil` if the sentence isn't cached.
   public func get(_ key: String) -> [Float]? {
     guard let data = try? Data(contentsOf: url(key)), !data.isEmpty else { return nil }
     try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url(key).path)
@@ -24,7 +36,13 @@ public struct PhraseCache: Sendable {
     }
   }
 
-  /// Caches `samples` under `key`, then evicts the least recently played files past `limit`.
+  /// Caches the samples for a sentence.
+  ///
+  /// If the cache is then larger than ``limit``, the least recently used files are removed until it fits.
+  ///
+  /// - Parameters:
+  ///   - key: The sentence's cache key, from ``cacheKey(_:voice:speed:)``.
+  ///   - samples: The rendered samples.
   public func put(_ key: String, _ samples: [Float]) {
     let fm = FileManager.default
     try? fm.createDirectory(at: directory, withIntermediateDirectories: true)

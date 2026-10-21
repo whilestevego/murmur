@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
-"""Scores murmur's text cleanup against NeMo's English normalization cases (make nemo).
+"""Scores murmur's text normalization against NeMo's English test cases.
 
-Each case is written form ~ spoken form. murmur passes when its sounds for the written form match Kokoro's sounds for
-the spoken one, so digits murmur leaves for FluidAudio to read count the same as NeMo's words. Stress marks,
-punctuation and "and" are ignored: "one hundred and twenty three" and "one hundred twenty three" are both right.
-deviations.txt lists the cases murmur reads differently on purpose. Exits 1 if anything else fails; SHOW=1 prints it.
+Each case is a written form and a spoken form, separated by "~". A case passes when Kokoro's phonemes for murmur's
+reading of the written form match its phonemes for the spoken form. Comparing phonemes means that digits murmur leaves
+for FluidAudio to read still match NeMo's words. Stress marks, punctuation and the word "and" are ignored, so "one
+hundred and twenty three" matches "one hundred twenty three".
+
+The cases in deviations.txt are ones that murmur reads differently on purpose. The script exits with status 1 if any
+other case fails. Set SHOW=1 to print the failures. Run it with make nemo.
 """
 import os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MURMURD = os.path.join(HERE, '../../.build/release/murmurd')
-MARK = 'Zebra'  # a word between cases, to split the output back up
+# A word placed between cases, so that the output can be split back into cases.
+MARK = 'Zebra'
 
 def sounds(texts):
+    """Returns Kokoro's phonemes for each text, in order."""
     out = subprocess.run([MURMURD, '--phonemes', f'\n{MARK}\n'.join(texts) + f'\n{MARK}'], capture_output=True, text=True, check=True).stdout
     groups, current = [], []
     for line in out.splitlines():
@@ -25,6 +30,7 @@ def sounds(texts):
     return groups
 
 def plain(s):
+    """Returns phonemes without stress marks, punctuation or the word "and"."""
     return re.sub(r'\s+', ' ', re.sub(r'\bænd\b', ' ', re.sub(r'[ˈˌ.,!?;:—…"()-]', ' ', s))).strip()
 
 deviations = {l.split('~')[0] for l in open(os.path.join(HERE, 'deviations.txt')) if '~' in l and not l.startswith('#')}

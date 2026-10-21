@@ -1,20 +1,26 @@
 import Foundation
 
-/// One of Kokoro's voices, as `murmur voices` lists it.
+/// A Kokoro voice.
 public struct VoiceInfo: Equatable, Sendable {
-  /// Kokoro's name for it, such as "af_nicole": accent and gender, then the name.
+  /// The voice's name, such as "af_nicole".
+  ///
+  /// The first letter gives the accent, and the second letter gives the gender.
   public let name: String
-  /// The heading it's listed under, such as "American female".
+  /// The accent and gender, such as "American female".
   public let group: String
-  /// Kokoro's own "Overall Grade" for the voice (A to F): how good and how plentiful its training audio was.
+  /// The voice's overall grade from Kokoro, from A to F.
+  ///
+  /// The grade reflects the quality and amount of the voice's training audio.
   public let grade: String
 
-  /// The name to show: "af_nicole" → "Nicole".
+  /// The voice's display name, such as "Nicole" for "af_nicole".
   public var label: String { String(name.dropFirst(3)).capitalized }
 }
 
-/// Kokoro v1.0's 28 English voices, grouped by accent and gender (the name's first two letters), with the grades
-/// from Kokoro's VOICES.md (https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
+/// The 28 English voices of Kokoro v1.0.
+///
+/// The voices are grouped by accent and gender, which the first two letters of each name give. The grades come from
+/// [Kokoro's list of voices](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
 public let voiceCatalog: [VoiceInfo] = {
   let groups: [(String, String, KeyValuePairs<String, String>)] = [
     (
@@ -39,33 +45,46 @@ public let voiceCatalog: [VoiceInfo] = {
   }
 }()
 
-/// The voice packs on disk, and downloading the missing ones.
+/// The installed voice packs.
 public enum VoicePacks {
-  /// One voice pack: Kokoro's style vectors, 510 × 256 Float32.
+  /// The size of a voice pack, in bytes.
+  ///
+  /// A pack holds Kokoro's style vectors, which are 510 by 256 32-bit floats.
   public static let bytes = 510 * 256 * 4
 
-  /// Where the engine reads packs: the installed bundle, else FluidAudio's own download cache.
+  /// The directory that FluidAudio reads voice packs from.
+  ///
+  /// It's in the installed bundle if there is one, and in FluidAudio's download cache otherwise.
   public static var directory: URL {
     Paths.bundleInstalled ? Paths.bundleANE : Paths.fluidCache.appendingPathComponent("kokoro-82m-coreml/ANE")
   }
 
-  /// Whether the pack for the voice `name` is in `directory`.
+  /// Returns whether a voice's pack is installed.
+  ///
+  /// - Parameter name: The name of the voice.
+  /// - Returns: `true` if the pack is in ``directory``.
   public static func isInstalled(_ name: String) -> Bool {
     FileManager.default.fileExists(atPath: directory.appendingPathComponent("\(name).bin").path)
   }
 
-  /// FluidAudio only publishes af_heart for the Neural Engine; these are the same raw packs, one file per voice.
+  /// Returns the download URL for a voice's pack.
+  ///
+  /// FluidAudio publishes only af_heart for the Neural Engine. This repository has the same raw packs for every voice,
+  /// one file each.
   static func remote(_ name: String) -> URL? {
     URL(string: "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/\(name).bin")
   }
 
-  /// Why `install` failed.
+  /// An error from installing a voice pack.
   public enum InstallError: Error, CustomStringConvertible {
+    /// A voice name that isn't in ``voiceCatalog``.
     case unknown(String)
+    /// A download that failed, with the reason.
     case download(String)
+    /// A download that wasn't the size of a voice pack, with its size in bytes.
     case badSize(Int)
 
-    /// The message `murmur` prints.
+    /// A message that describes the error.
     public var description: String {
       switch self {
       case .unknown(let name): return "unknown voice \(name) (see: murmur voices)"
@@ -75,7 +94,13 @@ public enum VoicePacks {
     }
   }
 
-  /// Downloads one pack (~510 KB), checks its size, and moves it into place atomically.
+  /// Downloads and installs a voice pack.
+  ///
+  /// A pack is about 510 KB. The download's size is checked before the pack is moved into place, and the move is
+  /// atomic.
+  ///
+  /// - Parameter name: The name of the voice.
+  /// - Throws: ``InstallError`` if the voice is unknown, or if the download fails or has the wrong size.
   public static func install(_ name: String) async throws {
     guard voiceCatalog.contains(where: { $0.name == name }), let url = remote(name) else {
       throw InstallError.unknown(name)

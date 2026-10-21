@@ -13,10 +13,12 @@ final class PhraseCacheTests: XCTestCase {
     try? FileManager.default.removeItem(at: dir)
   }
 
-  /// Room for `n` phrases of 4 samples each.
+  /// Returns a cache with room for a number of four-sample phrases.
   func cache(holding n: Int) -> PhraseCache { PhraseCache(directory: dir, limit: n * 4 * MemoryLayout<Float>.stride) }
 
-  /// Modification times order the cache; keep each step distinct.
+  /// Waits long enough for the next file to get a later modification time.
+  ///
+  /// The cache orders files by modification time.
   func tick() { usleep(20_000) }
 
   func testSamplesComeBackExactly() {
@@ -39,7 +41,8 @@ final class PhraseCacheTests: XCTestCase {
       c.put(key, [1, 2, 3, 4])
       tick()
     }
-    XCTAssertNotNil(c.get("a"))  // played: now b is the oldest
+    // Reading "a" makes "b" the least recently used.
+    XCTAssertNotNil(c.get("a"))
     tick()
     c.put("c", [1, 2, 3, 4])
     XCTAssertNotNil(c.get("a"))

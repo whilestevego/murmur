@@ -2,27 +2,28 @@ import Foundation
 
 // MARK: - Measures and addresses
 
+/// Reads measurements aloud, with their units in words.
 func measures(_ text: String) -> String {
   let longestFirst = units.keys.sorted { $0.count > $1.count }
   let keys = longestFirst.map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|")
   let glued = gluedUnits.keys.joined(separator: "|")
   var t = text
-  // 2°C → "2 degrees Celsius"
+  // For example, "2°C" becomes "2 degrees Celsius".
   t = replace(t, #"(\d+(?:\.\d+)?)\h?[°º]\h?([CF])?\b"#) { g in
     let deg = g[1] == "1" ? "degree" : "degrees"
     return "\(g[1]) \(deg)" + (g[2].isEmpty ? "" : g[2] == "C" ? " Celsius" : " Fahrenheit")
   }
-  // 5 m2, 41459 km³ → "5 square meters", "41459 cubic kilometers"
+  // For example, "5 m2" becomes "5 square meters", and "41459 km³" becomes "41459 cubic kilometers".
   t = replace(t, #"(\d+(?:\.\d+)?)\h?(km|cm|mm|m|ft)(2|²|3|³)(?!\w)"#) { g in
     let names = ["km": "kilometers", "cm": "centimeters", "mm": "millimeters", "m": "meters", "ft": "feet"]
     guard let name = names[g[2]] else { return nil }
     return "\(g[1]) \("2²".contains(g[3]) ? "square" : "cubic") \(name)"
   }
-  // 12kg/kg, 60 km/h → "per kilogram", "per hour"
+  // A unit after a slash is read with "per". For example, "60 km/h" becomes "60 km per hour".
   t = replace(t, "(?<=[\\w])\\h?/\\h?(\(keys)|\(glued))(?![\\w/])") { g in
     (units[g[1]] ?? gluedUnits[g[1]]).map { " per \($0.0)" }
   }
-  // 200ms → "200 milliseconds", 100 million kg → "100 million kilograms", 2 and a half lbs → "… pounds"
+  // For example, "200ms" becomes "200 milliseconds", and "100 million kg" becomes "100 million kilograms".
   t = replace(
     t,
     "(?<![\\w.])(\\d+(?:\\.\\d+)?)((?:\\h(?:thousand|million|billion|trillion))?)(?:\\h?(\(keys))|(\(glued)))(?![\\w/])"
@@ -55,18 +56,21 @@ let units: [String: (String, String)] = [
   "ft": ("foot", "feet"), "mph": ("mile per hour", "miles per hour"),
   "kph": ("kilometer per hour", "kilometers per hour"),
 ]
-/// Only right after the number (5s, 3h, 200g): spaced out, these are too often a word.
+/// Units that are read as units only when they follow a number directly, as in "5s" or "200g".
+///
+/// With a space before them, these letters are more often words than units.
 let gluedUnits: [String: (String, String)] = [
   "s": ("second", "seconds"), "m": ("minute", "minutes"), "h": ("hour", "hours"), "g": ("gram", "grams"),
 ]
 
+/// Reads street addresses aloud.
 func addresses(_ text: String) -> String {
   let street = [
     "St": "Street", "Ave": "Avenue", "Rd": "Road", "Ct": "Court", "Blvd": "Boulevard", "Dr": "Drive", "Ln": "Lane",
     "Expy": "Expressway", "Hwy": "Highway", "Pkwy": "Parkway", "Pl": "Place",
   ]
   let way = ["N": "North", "S": "South", "E": "East", "W": "West"]
-  // 1428 Elm St, 708 N 1st St → "14 28 Elm Street", "7 0 8 North 1st Street"
+  // For example, "1428 Elm St" becomes "14 28 Elm Street", and "708 N 1st St" becomes "7 0 8 North 1st Street".
   var t = replace(
     text,
     #"\b(\d{1,5})\h+(?:([NSEW])\.?\h+)?((?:(?:[A-Z][a-z]+|\d+(?:st|nd|rd|th))\h+){1,3})(?i:(st|ave|rd|ct|blvd|dr|ln|expy|hwy|pkwy|pl))\b"#
@@ -74,7 +78,8 @@ func addresses(_ text: String) -> String {
     guard let kind = street.first(where: { $0.key.lowercased() == g[4].lowercased() })?.value else { return nil }
     return "\(houseNumber(g[1])) \(way[g[2]].map { $0 + " " } ?? "")\(g[3])\(kind)"
   }
-  // …Street, Santa Clara, CA 95051 → "…, California 9 5 0 5 1"
+  // A state code after a street name is read as the state's name, and the ZIP code is read digit by digit. For example,
+  // "Street, Santa Clara, CA 95051" becomes "Street, Santa Clara, California 9 5 0 5 1".
   t = replace(
     t,
     #"((?:Street|Avenue|Road|Court|Boulevard|Drive|Lane|Expressway|Highway|Parkway|Place)(?:,\h+[A-Z][a-z]+(?:\h[A-Z][a-z]+)*)?),\h+([A-Z]{2})\b(,?\h+\d{5})?"#
@@ -86,7 +91,9 @@ func addresses(_ text: String) -> String {
   return t
 }
 
-/// A house number as it's said: 1428 → "14 28", 123 → "1 23", 708 → "7 0 8".
+/// Returns a house number as it's spoken.
+///
+/// For example, "1428" becomes "14 28", "123" becomes "1 23", and "708" becomes "7 0 8".
 func houseNumber(_ n: String) -> String {
   switch n.count {
   case 3: return n.dropFirst().hasPrefix("0") ? spaced(n) : "\(n.prefix(1)) \(n.suffix(2))"

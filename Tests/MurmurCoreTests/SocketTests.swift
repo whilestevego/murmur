@@ -45,7 +45,7 @@ final class SocketTests: XCTestCase {
     XCTAssertNil(connectSocket(path))
   }
 
-  /// A connected pair, without a path.
+  /// Returns a pair of connected sockets that have no path.
   func pair() -> (Int32, Int32) {
     var fds: [Int32] = [0, 0]
     XCTAssertEqual(socketpair(AF_UNIX, SOCK_STREAM, 0, &fds), 0)
@@ -59,7 +59,8 @@ final class SocketTests: XCTestCase {
     let sent = 256 * 1024
     let done = expectation(description: "writer gave up")
     Thread.detachNewThread {
-      writeAll(writer, Data(count: sent))  // blocks until the reader closes
+      // This blocks until the reader closes its end.
+      writeAll(writer, Data(count: sent))
       close(writer)
       done.fulfill()
     }
@@ -70,7 +71,7 @@ final class SocketTests: XCTestCase {
     wait(for: [done], timeout: 5)
   }
 
-  /// murmurd sets a receive timeout: a client that never closes gets what it sent so far.
+  /// Tests that a read with a receive timeout returns the data that arrived before the timeout.
   func testReadReturnsWhatArrivedOnTimeout() {
     let (reader, writer) = pair()
     defer {
