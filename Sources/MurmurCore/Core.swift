@@ -9,12 +9,16 @@ public enum Request: Codable, Equatable, Sendable {
 
 /// Text to speak, and how.
 public struct Speech: Codable, Equatable, Sendable {
+  /// Raw text: murmurd cleans it up and splits it into sentences.
   public var text: String
+  /// A name from `voiceCatalog`; murmurd installs it on first use.
   public var voice: String
+  /// Kokoro's speaking rate: 1 is normal, above 1 faster.
   public var speed: Float
   /// Cut off whatever is playing (and anything queued) before speaking.
   public var interrupt: Bool
 
+  /// Speech in the default voice at normal speed, queued after whatever is playing.
   public init(text: String = "", voice: String = Defaults.voice, speed: Float = 1, interrupt: Bool = false) {
     self.text = text
     self.voice = voice
@@ -54,12 +58,17 @@ public struct Speech: Codable, Equatable, Sendable {
   }
 }
 
+/// A mistake in the arguments `murmur` was given; it prints the message and exits with 1.
 public struct UsageError: Error, CustomStringConvertible, Equatable {
+  /// What was wrong, as `murmur` prints it after "murmur:".
   public let description: String
+  /// An error with this message.
   public init(_ description: String) { self.description = description }
 }
 
+/// Settings murmur doesn't let you change.
 public enum Defaults {
+  /// The voice when `--voice` isn't given: the one Kokoro grades best, and the one FluidAudio ships.
   public static let voice = "af_heart"
   /// Kokoro renders 24 kHz mono.
   public static let sampleRate = 24_000.0
@@ -69,12 +78,17 @@ public enum Defaults {
   public static let cacheBytes = 32 * 1024 * 1024
 }
 
+/// Where murmur keeps its files.
 public enum Paths {
+  /// The user's home folder.
   public static let home = FileManager.default.homeDirectoryForCurrentUser
+  /// The socket, lock, log and phrase cache: everything murmur can rebuild if it's deleted.
   public static let caches = home.appendingPathComponent("Library/Caches/murmur")
   /// Short on purpose: a unix socket path must fit in 104 bytes.
   public static let socket = caches.appendingPathComponent("murmurd.sock")
+  /// The phrase cache's rendered sentences.
   public static let phrases = caches.appendingPathComponent("phrases")
+  /// murmurd's output; murmur starts it afresh once it passes 1 MB.
   public static let log = caches.appendingPathComponent("murmurd.log")
   /// The Kokoro CoreML bundle (the 7 .mlmodelc stages, vocab and voice packs).
   public static let models = home.appendingPathComponent("Library/Application Support/murmur/KokoroBundle")

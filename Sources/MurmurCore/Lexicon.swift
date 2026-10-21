@@ -5,10 +5,12 @@ import Foundation
 /// the list to a small neural guesser, which misreads some (today's → "TOE-days"). murmur works those words out first
 /// and hands FluidAudio their exact sounds.
 public struct Lexicon: Sendable {
-  /// Lower-cased word → sounds, and exact spelling → sounds (names, abbreviations, single letters).
+  /// Lower-cased word → sounds.
   public let lower: [String: String]
+  /// Exact spelling → sounds: names, abbreviations, single letters.
   public let cased: [String: String]
 
+  /// A lexicon from these lists; empty, the rules work out nothing.
   public init(lower: [String: String] = [:], cased: [String: String] = [:]) {
     self.lower = lower
     self.cased = cased
