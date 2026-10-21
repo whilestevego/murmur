@@ -1,20 +1,31 @@
 import Foundation
 
-/// Kokoro's word list (misaki's gold and silver dictionaries, as FluidAudio caches them), and misaki's rules for words
-/// it lacks: a known word plus -s, -'s, -ed or -ing, and hyphenated compounds. FluidAudio sends every word missing from
-/// the list to a small neural guesser, which misreads some (today's → "TOE-days"). murmur works those words out first
-/// and hands FluidAudio their exact sounds.
+/// Kokoro's pronunciation dictionary, with misaki's rules for words it doesn't list.
+///
+/// The dictionary is misaki's gold and silver lists, as FluidAudio caches them. FluidAudio sends every word that isn't
+/// listed to a small neural model, which misreads some of them. For example, it reads "today's" as "TOE-days". The
+/// rules work out the pronunciation of a listed word with -s, -'s, -ed or -ing added, and of a hyphenated compound of
+/// listed words, so that FluidAudio can be given the exact phonemes instead.
 public struct Lexicon: Sendable {
-  /// Lower-cased word → sounds, and exact spelling → sounds (names, abbreviations, single letters).
+  /// The phonemes for each word, keyed by its lowercase spelling.
   public let lower: [String: String]
+  /// The phonemes for words whose case matters, such as names, abbreviations and single letters, keyed by exact spelling.
   public let cased: [String: String]
 
+  /// Creates a lexicon from word lists.
+  ///
+  /// - Parameters:
+  ///   - lower: The phonemes for each word, keyed by its lowercase spelling.
+  ///   - cased: The phonemes for words whose case matters, keyed by exact spelling.
   public init(lower: [String: String] = [:], cased: [String: String] = [:]) {
     self.lower = lower
     self.cased = cased
   }
 
-  /// The list FluidAudio itself reads; empty when the model isn't installed, which only turns these rules off.
+  /// Loads the dictionary that FluidAudio reads.
+  ///
+  /// - Returns: The dictionary, or an empty lexicon if the model isn't installed. With an empty lexicon, the rules don't
+  ///   change any pronunciations.
   public static func load() -> Lexicon {
     for dir in [Paths.models.appendingPathComponent("kokoro"), Paths.g2p] {
       guard let data = try? Data(contentsOf: dir.appendingPathComponent("us_lexicon_cache.json")),
@@ -27,21 +38,35 @@ public struct Lexicon: Sendable {
     return Lexicon()
   }
 
-  /// What FluidAudio's own lookup finds: the exact spelling, then the lower-cased one.
+  /// Returns the phonemes for a word, looked up the same way FluidAudio does.
+  ///
+  /// The exact spelling is tried first, then the lowercase spelling.
+  ///
+  /// - Parameter word: The word to look up.
+  /// - Returns: The phonemes, or `nil` if the dictionary doesn't list the word.
   public func entry(_ word: String) -> String? {
     let key = String(word.lowercased().unicodeScalars.filter { Self.keyScalars.contains($0) })
     return cased[word] ?? cased[key] ?? lower[key]
   }
 
-  /// Exact sounds for the words in `text` that the list lacks but the rules can work out, plus your own (`mine`), which
-  /// win and also count as known stems: with `rebase` set, `rebased` follows.
+  /// Returns the phonemes for the words in a text that the rules can work out.
+  ///
+  /// Words the dictionary lists are left out, because FluidAudio already reads them correctly. Custom pronunciations
+  /// take precedence over the dictionary, and also serve as stems. For example, a custom pronunciation of "rebase" also
+  /// gives the pronunciation of "rebased".
+  ///
+  /// - Parameters:
+  ///   - text: The text to find words in.
+  ///   - mine: Custom pronunciations, as phonemes by word.
+  /// - Returns: The phonemes by word, for each word the rules or the custom pronunciations cover.
   public func sounds(for text: String, mine: [String: String] = [:]) -> [String: String] {
     var out: [String: String] = [:]
     for word in Self.words(text) where out[word] == nil {
       if let s = mine[word] ?? mine[word.lowercased()] {
         out[word] = s
       } else if Self.isInitialismPlural(word), let s = derive(word, mine) {
-        out[word] = s  // APIs is "A P Is", not the bee genus apis
+        // Spell out "APIs" as letters, because the dictionary lists the bee genus "apis".
+        out[word] = s
       } else if entry(word) == nil && !Self.isInitialism(word), let s = derive(word, mine) {
         out[word] = s
       }
@@ -51,11 +76,13 @@ public struct Lexicon: Sendable {
 
   private static let keyScalars = CharacterSet.letters.union(.decimalDigits).union(CharacterSet(charactersIn: "'"))
   // swift-format-ignore: NeverUseForceTry
-  // A constant pattern: if it didn't compile, every test would fail.
+  // The pattern is a constant, so a mistake in it fails every test.
   private static let wordRegex = try! NSRegularExpression(
     pattern: "[\\p{L}\\p{N}][\\p{L}\\p{N}-]*(?:'[\\p{L}\\p{N}]+)*")
 
-  /// Words as FluidAudio splits them: letters and digits, with inner apostrophes and hyphens.
+  /// Splits text into words the same way FluidAudio does.
+  ///
+  /// A word is a run of letters and digits, which can contain apostrophes and hyphens.
   static func words(_ text: String) -> [String] {
     let source = text as NSString
     return wordRegex.matches(in: text, range: NSRange(location: 0, length: source.length)).map {
@@ -63,17 +90,19 @@ public struct Lexicon: Sendable {
     }
   }
 
-  /// `PRs`, `API's`: letters to spell, plus an ending.
+  /// Returns whether a word is an initialism with a plural or possessive ending, such as "PRs" or "API's".
   static func isInitialismPlural(_ word: String) -> Bool {
     word.range(of: "^[A-Z]{2,5}'?s$", options: .regularExpression) != nil
   }
 
-  /// FluidAudio spells these as letters on its own (`FBI`).
+  /// Returns whether a word is an initialism, such as "FBI", which FluidAudio spells out by itself.
   static func isInitialism(_ word: String) -> Bool {
     (2...5).contains(word.count) && word.allSatisfy { $0.isASCII && $0.isUppercase && $0.isLetter }
   }
 
-  // MARK: - misaki's rules (misaki/en.py: Lexicon.lookup, stem_s, stem_ed, stem_ing)
+  // MARK: - misaki's rules
+
+  // These follow `Lexicon.lookup`, `stem_s`, `stem_ed` and `stem_ing` in misaki's `en.py`.
 
   private func lookup(_ word: String, _ mine: [String: String]) -> String? {
     if let s = mine[word] ?? mine[word.lowercased()] { return s }
@@ -83,7 +112,9 @@ public struct Lexicon: Sendable {
     return entry(word)
   }
 
-  /// `PR` → "pˈi ˈɑɹ", from the single-letter entries.
+  /// Returns the phonemes for spelling a word letter by letter, from the dictionary's single-letter entries.
+  ///
+  /// For example, "PR" is spelled "pˈi ˈɑɹ".
   private func spell(_ word: String) -> String? {
     let letters = word.compactMap { cased[String($0)] }
     return letters.count == word.count ? letters.joined(separator: " ") : nil
@@ -130,7 +161,8 @@ public struct Lexicon: Sendable {
     } else if word.range(of: "([bdgklmnprtvz])\\1ed$", options: .regularExpression) != nil,
       lookup(String(word.dropLast(3)), mine) != nil
     {
-      stem = String(word.dropLast(3))  // stopped: like stem_ing's stopping, which misaki's stem_ed lacks
+      // A doubled consonant, as in "stopped". misaki handles this in stem_ing but not in stem_ed.
+      stem = String(word.dropLast(3))
     } else {
       return nil
     }
@@ -155,7 +187,7 @@ public struct Lexicon: Sendable {
     return lookup(stem, mine).flatMap(Self.addIng)
   }
 
-  /// Vowels after which an American t flaps (water → "waɾer").
+  /// The vowels after which an American "t" is pronounced as a flap, as in "water".
   private static let taus: Set<Character> = Set("AIOWYiuæɑəɛɪɹʊʌ")
 
   static func addS(_ stem: String) -> String? {

@@ -2,8 +2,12 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// Runs `block` and returns the Objective-C exception it raised, or nil. Swift can't catch these, and AVAudioEngine
-/// raises them instead of throwing errors.
+/// Runs a block and catches any Objective-C exception it raises.
+///
+/// Swift can't catch Objective-C exceptions, and AVAudioEngine raises them instead of throwing errors.
+///
+/// - Parameter block: The code to run.
+/// - Returns: The exception that the block raised, or `nil` if it didn't raise one.
 NSException *_Nullable objcTry(NS_NOESCAPE void (^block)(void));
 
 NS_ASSUME_NONNULL_END
