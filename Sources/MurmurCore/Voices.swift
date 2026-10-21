@@ -1,7 +1,10 @@
 import Foundation
 
+/// One of Kokoro's voices, as `murmur voices` lists it.
 public struct VoiceInfo: Equatable, Sendable {
+  /// Kokoro's name for it, such as "af_nicole": accent and gender, then the name.
   public let name: String
+  /// The heading it's listed under, such as "American female".
   public let group: String
   /// Kokoro's own "Overall Grade" for the voice (A to F): how good and how plentiful its training audio was.
   public let grade: String
@@ -36,6 +39,7 @@ public let voiceCatalog: [VoiceInfo] = {
   }
 }()
 
+/// The voice packs on disk, and downloading the missing ones.
 public enum VoicePacks {
   /// One voice pack: Kokoro's style vectors, 510 × 256 Float32.
   public static let bytes = 510 * 256 * 4
@@ -45,6 +49,7 @@ public enum VoicePacks {
     Paths.bundleInstalled ? Paths.bundleANE : Paths.fluidCache.appendingPathComponent("kokoro-82m-coreml/ANE")
   }
 
+  /// Whether the pack for the voice `name` is in `directory`.
   public static func isInstalled(_ name: String) -> Bool {
     FileManager.default.fileExists(atPath: directory.appendingPathComponent("\(name).bin").path)
   }
@@ -54,10 +59,13 @@ public enum VoicePacks {
     URL(string: "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/\(name).bin")
   }
 
+  /// Why `install` failed.
   public enum InstallError: Error, CustomStringConvertible {
     case unknown(String)
     case download(String)
     case badSize(Int)
+
+    /// The message `murmur` prints.
     public var description: String {
       switch self {
       case .unknown(let name): return "unknown voice \(name) (see: murmur voices)"

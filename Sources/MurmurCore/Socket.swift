@@ -46,6 +46,7 @@ public func listenSocket(_ path: String) -> Int32? {
   return fd
 }
 
+/// Writes all of `data`, retrying short and interrupted writes; stops quietly if the other end goes away.
 public func writeAll(_ fd: Int32, _ data: Data) {
   data.withUnsafeBytes { buf in
     guard let base = buf.baseAddress else { return }  // empty
@@ -59,6 +60,7 @@ public func writeAll(_ fd: Int32, _ data: Data) {
   }
 }
 
+/// Reads until the other end closes, `limit` bytes arrive, or the socket's receive timeout fires.
 public func readAll(_ fd: Int32, limit: Int = 1 << 20) -> Data {
   var data = Data()
   var chunk = [UInt8](repeating: 0, count: 64 * 1024)
