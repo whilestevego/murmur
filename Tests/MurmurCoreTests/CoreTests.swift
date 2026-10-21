@@ -165,3 +165,36 @@ final class LexiconTests: XCTestCase {
     XCTAssertEqual(sounds, ["rebase": "ɹˈibˌAs"])
   }
 }
+
+final class ArgumentTests: XCTestCase {
+  func speech(_ args: String...) throws -> Speech { try Speech(arguments: args) }
+
+  func usageError(_ args: String...) -> String? {
+    do {
+      _ = try Speech(arguments: args)
+      return nil
+    } catch {
+      return error.description
+    }
+  }
+
+  func testOptionsAndText() throws {
+    XCTAssertEqual(try speech("Hello", "there"), Speech(text: "Hello there"))
+    XCTAssertEqual(
+      try speech("-v", "bm_george", "Hi", "--speed", "1.5", "-i"),
+      Speech(text: "Hi", voice: "bm_george", speed: 1.5, interrupt: true))
+    XCTAssertEqual(try speech("--voice", "bf_emma", "-s", "0.8", "--interrupt"), Speech(voice: "bf_emma", speed: 0.8, interrupt: true))
+    XCTAssertEqual(try speech(), Speech())
+  }
+
+  func testEverythingAfterDoubleDashIsText() throws {
+    XCTAssertEqual(try speech("-i", "--", "-v", "is", "a", "flag"), Speech(text: "-v is a flag", interrupt: true))
+  }
+
+  func testBadOptions() {
+    XCTAssertEqual(usageError("-v"), "--voice needs a name")
+    XCTAssertEqual(usageError("--voice", "xx_nobody", "Hi"), "unknown voice xx_nobody (see: murmur voices)")
+    for speed in ["0", "-1", "fast"] { XCTAssertEqual(usageError("-s", speed, "Hi"), "--speed needs a number", speed) }
+    XCTAssertEqual(usageError("Hi", "--speed"), "--speed needs a number")
+  }
+}
