@@ -86,7 +86,7 @@ func addresses(_ text: String) -> String {
   return t
 }
 
-/// 1428 → "14 28", 123 → "1 23", 708 → "7 0 8"
+/// A house number as it's said: 1428 → "14 28", 123 → "1 23", 708 → "7 0 8".
 func houseNumber(_ n: String) -> String {
   switch n.count {
   case 3: return n.dropFirst().hasPrefix("0") ? spaced(n) : "\(n.prefix(1)) \(n.suffix(2))"

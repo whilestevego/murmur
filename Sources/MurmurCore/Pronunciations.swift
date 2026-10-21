@@ -1,6 +1,8 @@
 import Foundation
 
-/// Words Kokoro gets wrong, rewritten before speaking. Checked with `murmur phonemes`.
+/// Words Kokoro gets wrong, rewritten before speaking.
+///
+/// Each was checked with `murmur phonemes`.
 public enum Pronunciations {
   /// Acronyms that collide with dictionary words (ID → "id"), and tech words the model spells out or mangles.
   public static let defaults: [String: String] = [
@@ -19,7 +21,9 @@ public enum Pronunciations {
     "stdout": "standard out", "stderr": "standard error", "stdin": "standard in",
   ]
 
-  /// Your own, one per line: `WORD = how to say it`. They win over the defaults.
+  /// Your own pronunciations, one per line: `WORD = how to say it`.
+  ///
+  /// They win over the defaults.
   public static let file = Paths.home.appendingPathComponent(".config/murmur/pronunciations")
 
   /// `WORD = spoken` lines; blank lines and `#` comments are skipped.
@@ -35,7 +39,9 @@ public enum Pronunciations {
     return out
   }
 
-  /// The defaults with your file on top. Read on every request, so an edit applies to the next thing said.
+  /// The defaults with your file on top.
+  ///
+  /// Read on every request, so an edit applies to the next thing said.
   public static func load() -> [String: String] {
     let mine = (try? String(contentsOf: file, encoding: .utf8)).map(parse) ?? [:]
     return defaults.merging(mine) { _, yours in yours }

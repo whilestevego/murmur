@@ -186,7 +186,7 @@ func cardinalWords(_ n: Int) -> String {
   (spellOut.string(from: n as NSNumber) ?? "\(n)").replacingOccurrences(of: "-", with: " ")
 }
 
-/// 32 → "thirty second", 2007 → "two thousand seventh"
+/// A number as ordinal words: 32 → "thirty second", 2007 → "two thousand seventh".
 func ordinalWords(_ n: Int) -> String {
   var words = cardinalWords(n).split(separator: " ").map(String.init)
   let last = words.removeLast()
