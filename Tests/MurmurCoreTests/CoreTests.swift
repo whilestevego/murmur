@@ -17,8 +17,9 @@ final class CoreTests: XCTestCase {
   }
 
   func testRequestRoundTrips() throws {
-    let r = Request(text: "Hello", voice: "bm_george", speed: 1.1, interrupt: true)
-    XCTAssertEqual(try JSONDecoder().decode(Request.self, from: JSONEncoder().encode(r)), r)
+    for r in [Request.speak(Speech(text: "Hello", voice: "bm_george", speed: 1.1, interrupt: true)), .stop] {
+      XCTAssertEqual(try JSONDecoder().decode(Request.self, from: JSONEncoder().encode(r)), r)
+    }
   }
 
   func testSocketPathFitsSunPath() {

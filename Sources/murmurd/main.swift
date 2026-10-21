@@ -8,6 +8,13 @@ func log(_ message: String) {
   FileHandle.standardError.write(Data("\(Date()) \(message)\n".utf8))
 }
 
+/// Kokoro from the installed bundle, else downloaded from HuggingFace into FluidAudio's cache.
+func makeKokoro() async throws -> KokoroAneManager {
+  let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: Paths.bundleInstalled ? Paths.models : nil)
+  try await m.initialize()
+  return m
+}
+
 /// Phrase cache: one raw Float32 file per rendered sentence, least recently played evicted first.
 enum PhraseCache {
   static func url(_ key: String) -> URL { Paths.phrases.appendingPathComponent("\(key).f32") }
@@ -64,17 +71,18 @@ actor Speaker {
 
   func handle(_ request: Request) {
     lastActive = Date()
-    if request.stop || request.interrupt {
+    let speech: Speech? = if case .speak(let s) = request { s } else { nil }
+    if speech?.interrupt ?? true {
       generation += 1
       player.stop()  // fires the scheduled buffers' completions, so `pending` drains
     }
-    if request.stop { return }
+    guard let speech else { return }
     let gen = generation
-    let previous = request.interrupt ? nil : tail
+    let previous = speech.interrupt ? nil : tail
     speaking += 1
     tail = Task {
       await previous?.value
-      await self.speak(request, gen)
+      await self.speak(speech, gen)
       self.speaking -= 1
       self.stopIfDone()
     }
@@ -85,10 +93,8 @@ actor Speaker {
   /// Every caller awaits the same load, so a request arriving mid-load doesn't start a second one.
   private func loadedManager() async throws -> KokoroAneManager {
     let task = loading ?? Task {
-      let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
-      log("loading Kokoro (\(bundled ? Paths.models.path : "download from HuggingFace"))")
-      let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
-      try await m.initialize()
+      log("loading Kokoro (\(Paths.bundleInstalled ? Paths.models.path : "download from HuggingFace"))")
+      let m = try await makeKokoro()
       log("Kokoro ready")
       return m
     }
@@ -102,7 +108,7 @@ actor Speaker {
   }
 
   /// Renders sentence by sentence: the first plays while the next renders.
-  private func speak(_ request: Request, _ gen: Int) async {
+  private func speak(_ request: Speech, _ gen: Int) async {
     var request = request
     if !VoicePacks.isInstalled(request.voice) {
       // On-the-fly install: the first sentence waits for one ~510 KB download, later ones don't.
@@ -180,10 +186,8 @@ actor Speaker {
 // `murmurd --phonemes TEXT…`: print how the text will be pronounced, then exit (behind `murmur phonemes`).
 if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
   let text = CommandLine.arguments.dropFirst(2).joined(separator: " ")
-  let bundled = FileManager.default.fileExists(atPath: Paths.models.appendingPathComponent("kokoro-82m-coreml/ANE/vocab.json").path)
   do {
-    let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: bundled ? Paths.models : nil)
-    try await m.initialize()
+    let m = try await makeKokoro()
     for (sentence, sounds) in prepare(text, Pronunciations.load(), Lexicon.load()) {
       await m.setEnglishCustomLexicon(sounds)
       print(try await m.phonemes(for: sentence))
