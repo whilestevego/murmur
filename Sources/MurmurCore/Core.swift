@@ -67,13 +67,19 @@ public func sentences(_ text: String) -> [String] {
     }
     current.append(c)
     let next = i + 1 < chars.count ? chars[i + 1] : " "
-    if ".!?".contains(c) && (next == " " || next == "\n") {
+    if ".!?".contains(c) && (next == " " || next == "\n") && !(c == "." && endsInAbbreviation(current)) {
       out.append(current)
       current = ""
     }
   }
   out.append(current)
   return out.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+}
+
+/// "Use e.g." or "Ask Dr.": a period that doesn't end the sentence.
+private func endsInAbbreviation(_ text: String) -> Bool {
+  let word = text.split(separator: " ").last.map { $0.trimmingCharacters(in: .punctuationCharacters).lowercased() }
+  return word.map(["e.g", "i.e", "vs", "dr", "mr", "mrs", "ms"].contains) ?? false
 }
 
 /// The exact sounds a sentence was rendered with, as part of its cache key: a new pronunciation re-renders it.

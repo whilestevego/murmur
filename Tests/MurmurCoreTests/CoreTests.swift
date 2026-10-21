@@ -8,6 +8,13 @@ final class CoreTests: XCTestCase {
     XCTAssertEqual(sentences("v1.2 is out.\nNext line"), ["v1.2 is out.", "Next line"])
     XCTAssertEqual(sentences("  \n\n "), [])
     XCTAssertEqual(sentences("No end"), ["No end"])
+    XCTAssertEqual(sentences("Pi is 3.14 today. Wait... what?"), ["Pi is 3.14 today.", "Wait...", "what?"])
+  }
+
+  func testAbbreviationsDontEndASentence() {
+    XCTAssertEqual(sentences("Use e.g. this, i.e. that one."), ["Use e.g. this, i.e. that one."])
+    XCTAssertEqual(sentences("Ask Dr. Smith (vs. Mr. Jones). Done."), ["Ask Dr. Smith (vs. Mr. Jones).", "Done."])
+    XCTAssertEqual(sentences("A list (e.g. this) goes on."), ["A list (e.g. this) goes on."])
   }
 
   func testCacheKeyIsStableAndDistinct() {
