@@ -24,6 +24,12 @@ final class CoreTests: XCTestCase {
     XCTAssertNotEqual(a, cacheKey("Hi.", voice: "af_heart", speed: 1.2))
   }
 
+  func testSoundsKeyIsSortedAndChangesWithTheSounds() {
+    XCTAssertEqual(soundsKey(["b": "2", "a": "1"]), "|a=1|b=2")
+    XCTAssertEqual(soundsKey([:]), "")
+    XCTAssertNotEqual(soundsKey(["rebase": "ɹˈibˌAs"]), soundsKey(["rebase": "ɹibˈAs"]))
+  }
+
   func testRequestRoundTrips() throws {
     for r in [Request.speak(Speech(text: "Hello", voice: "bm_george", speed: 1.1, interrupt: true)), .stop] {
       XCTAssertEqual(try JSONDecoder().decode(Request.self, from: JSONEncoder().encode(r)), r)
@@ -81,6 +87,18 @@ final class PronunciationTests: XCTestCase {
     XCTAssertEqual(pronounce("Run /goto, then GOTO.", Pronunciations.defaults), "Run /go to, then go to.")
     XCTAssertEqual(pronounce("Both repos, one monorepo.", Pronunciations.defaults), "Both reepos, one mono reepo.")
   }
+
+  // prepare: the whole pipeline, cleanup then respellings then sentences then sounds.
+  func testRespelledNamesArentSplitFirst() {
+    let said = prepare("Check macOS, GraphQL and TodoWrite.", Pronunciations.defaults, Lexicon()).map(\.text)
+    XCTAssertEqual(said, ["Check mac O S, graph Q L and to do write."])
+  }
+
+  func testSoundEntriesBecomeSoundsNotText() {
+    let out = prepare("Open GitHub. Rebase it.", ["GitHub": "/ɡˈɪthʌb/", "rebase": "/ɹˈibˌAs/"], Lexicon())
+    XCTAssertEqual(out.map(\.text), ["Open GitHub.", "Rebase it."])  // a known name, so not "Git Hub"
+    XCTAssertEqual(out.map(\.sounds), [["GitHub": "ɡˈɪthʌb"], ["Rebase": "ɹˈibˌAs"]])  // each sentence, its own words
+  }
 }
 
 final class NormalizeTests: XCTestCase {
@@ -127,6 +145,27 @@ final class NormalizeTests: XCTestCase {
     XCTAssertEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 111].map(ordinalSuffix), ["st", "nd", "rd", "th", "th", "th", "th", "st", "nd", "th"])
     XCTAssertEqual([roman("IV"), roman("XL"), roman("MIX"), roman("II")], [4, 40, nil, 2])
   }
+
+  func testCodeRulesNeMoDoesntCover() {
+    let cases: [(String, String)] = [
+      ("open file:///Users/me/src/app/main.swift", "open main dot swift"),
+      ("C++ and x++", "C plus plus and x plus plus"),
+      ("i.e. this", "i.e. this"),
+      ("a t2000, not ab9453", "a t 2000, not ab 9 4 5 3"),
+    ]
+    for (input, spoken) in cases { XCTAssertEqual(normalize(input), spoken, input) }
+  }
+
+  /// Sentences end at line breaks, so no rule may join two lines or add one: checked on every NeMo case.
+  func testLineBreaksSurvive() throws {
+    let nemo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../nemo")
+    let files = try FileManager.default.contentsOfDirectory(at: nemo, includingPropertiesForKeys: nil).filter { $0.pathExtension == "txt" }
+    let written = try files.flatMap { try String(contentsOf: $0, encoding: .utf8).split(separator: "\n").compactMap { $0.split(separator: "~").first } }
+    XCTAssertGreaterThan(written.count, 400)
+    for w in written {
+      XCTAssertEqual(normalize("one\n\(w)\ntwo").split(separator: "\n", omittingEmptySubsequences: false).count, 3, String(w))
+    }
+  }
 }
 
 final class LexiconTests: XCTestCase {
@@ -163,6 +202,30 @@ final class LexiconTests: XCTestCase {
     let (respell, sounds) = Pronunciations.split(["JSON": "Jason", "rebase": "/ɹˈibˌAs/", "odd": "/"])
     XCTAssertEqual(respell, ["JSON": "Jason", "odd": "/"])
     XCTAssertEqual(sounds, ["rebase": "ɹˈibˌAs"])
+  }
+
+  func testMoreOfMisakisRules() {
+    let lexicon = Lexicon(lower: ["story": "stˈɔɹi", "built": "bˈɪlt"], cased: ["A": "ˈA", "P": "pˈi", "I": "ˈI"])
+    let s = lexicon.sounds(for: "stories, API, built-zzz")
+    XCTAssertEqual(s["stories"], "stˈɔɹiz")
+    XCTAssertNil(s["API"])  // FluidAudio spells initialisms itself
+    XCTAssertNil(s["built-zzz"])  // a part it can't work out: left to FluidAudio
+  }
+
+  func testEntryIgnoresCase() {
+    XCTAssertEqual(lexicon.entry("Today"), "tədˈA")
+    XCTAssertEqual(lexicon.entry("TODAY"), "tədˈA")
+    XCTAssertEqual(lexicon.entry("P"), "pˈi")
+    XCTAssertNil(lexicon.entry("p"))
+  }
+
+  /// If FluidAudio changed its cache's format, the lexicon would come back empty and these rules would quietly stop.
+  func testLoadsFluidAudiosList() throws {
+    let lists = [Paths.models.appendingPathComponent("kokoro"), Paths.g2p].map { $0.appendingPathComponent("us_lexicon_cache.json") }
+    try XCTSkipUnless(lists.contains { FileManager.default.fileExists(atPath: $0.path) }, "the model isn't installed")
+    let loaded = Lexicon.load()
+    XCTAssertGreaterThan(loaded.lower.count, 10_000)
+    XCTAssertNotNil(loaded.entry("today"))
   }
 }
 
