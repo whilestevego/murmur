@@ -109,6 +109,8 @@ Matching is by whole word. Respellings are case-sensitive, so `ID` changes while
 make test     # unit tests for the shared core
 make build    # release build into .build/release
 make nemo     # score the text cleanup against NeMo's cases (needs the model; SHOW=1 lists failures)
+make format   # format the Swift sources with swift-format (ships with Swift 6)
+make lint     # fail on formatting or lint problems
 ```
 
 Logs: `~/Library/Caches/murmur/murmurd.log`.
