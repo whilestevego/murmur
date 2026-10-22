@@ -6,8 +6,10 @@ reading of the written form match its phonemes for the spoken form. Comparing ph
 for FluidAudio to read still match NeMo's words. Stress marks, punctuation and the word "and" are ignored, so "one
 hundred and twenty three" matches "one hundred twenty three".
 
-The cases in deviations.txt are ones that murmur reads differently on purpose. The script exits with status 1 if any
-other case fails. Set SHOW=1 to print the failures. Run it with make nemo.
+For the cases in expected.txt, murmur deliberately reads the written form differently from NeMo, so they're checked
+against murmur's reading instead. The cases in gaps.txt are ones murmur doesn't read well yet. They're counted as gaps
+rather than failures, and a gap that starts to match NeMo is reported so that it can be removed. The script exits with
+status 1 if any other case fails. Set SHOW=1 to print the failures. Run it with make nemo.
 """
 import os, re, subprocess, sys
 
@@ -38,23 +40,39 @@ def plain(s):
     """Returns phonemes without stress marks, punctuation or the word "and"."""
     return re.sub(r'\s+', ' ', re.sub(r'\bænd\b', ' ', re.sub(r'[ˈˌ.,!?;:—…"()-]', ' ', s))).strip()
 
-deviations = {l.split('~')[0] for l in open(os.path.join(HERE, 'deviations.txt')) if '~' in l and not l.startswith('#')}
-files = sorted(f for f in os.listdir(HERE) if f.endswith('.txt') and f != 'deviations.txt')
+def entries(name):
+    """Returns the written form and the text after it on each line of a file, without comments."""
+    lines = [l.rstrip('\n') for l in open(os.path.join(HERE, name))]
+    return dict(l.split('~', 1) for l in lines if '~' in l and not l.startswith('#'))
+
+expected, gaps = entries('expected.txt'), entries('gaps.txt')
+files = sorted(f for f in os.listdir(HERE) if f.endswith('.txt') and f not in ('expected.txt', 'gaps.txt'))
 cases = {name: [l.rstrip('\n').split('~', 1) for l in open(os.path.join(HERE, name)) if '~' in l] for name in files}
+known = {written for name in files for written, _ in cases[name]}
+for written in (expected.keys() | gaps.keys()) - known:
+    sys.exit(f'{written!r} is in expected.txt or gaps.txt, but in none of the NeMo cases')
+for written in expected.keys() & gaps.keys():
+    sys.exit(f'{written!r} is in both expected.txt and gaps.txt')
+# A case in expected.txt is checked against murmur's reading instead of NeMo's.
+cases = {name: [(written, expected.get(written, spoken)) for written, spoken in cases[name]] for name in files}
 # Every written and spoken form goes to murmurd in one call, because each call loads the model.
 said = iter(sounds([text for name in files for case in cases[name] for text in case]))
-totals = [0, 0, 0]
+totals, fixed = [0, 0, 0], []
 for name in files:
     counts, failed = [0, 0, 0], []
     for written, spoken in cases[name]:
         g, w = next(said), next(said)
-        kind = 0 if plain(g) == plain(w) else 1 if written in deviations else 2
+        kind = 0 if plain(g) == plain(w) else 1 if written in gaps else 2
         counts[kind] += 1
+        if kind == 0 and written in gaps:
+            fixed.append(written)
         if kind == 2:
             failed.append(f'   ✗ {written!r} → want {spoken!r}\n       got  {plain(g)}\n       want {plain(w)}')
     totals = [a + b for a, b in zip(totals, counts)]
-    print(f'{name[:-4]:14} {counts[0]:3} pass  {counts[1]:2} on purpose  {counts[2]:2} fail')
-    if os.environ.get('SHOW'):
+    print(f'{name[:-4]:14} {counts[0]:3} pass  {counts[1]:2} gaps  {counts[2]:2} fail')
+    if os.environ.get('SHOW') and failed:
         print('\n'.join(failed))
-print(f'{"all":14} {totals[0]:3} pass  {totals[1]:2} on purpose  {totals[2]:2} fail  (of {sum(totals)})')
+print(f'{"all":14} {totals[0]:3} pass  {totals[1]:2} gaps  {totals[2]:2} fail  (of {sum(totals)})')
+for written in fixed:
+    print(f'{written!r} now matches NeMo, so it can be removed from gaps.txt')
 sys.exit(1 if totals[2] else 0)

@@ -1,0 +1,53 @@
+# How murmur reads the NeMo cases where it deliberately differs from NeMo. Each line has the written form and murmur's
+# reading, separated by "~". score.py checks these cases against murmur's reading instead of NeMo's, so a change in
+# how murmur reads one of them fails the score. Numbers are written in words, so that the check doesn't depend on how
+# FluidAudio reads digits.
+
+# A number without commas is read as an amount. NeMo reads it digit by digit.
+13000~thirteen thousand
+123000~one hundred twenty three thousand
+
+# A dash between numbers is read as "to".
+978-0~nine hundred seventy eight to zero
+from 2-10~from two to ten
+2-5~two to five
+1-8090~one to eight thousand ninety
+
+# Signs between numbers are read as math, and units after a number as words.
+2x8~two by eight
+2+3 m2~two plus three square meters
+2*8~two times eight
+4s~four seconds
+3 cc/s~three cc per second
+$12@12%~twelve dollars at twelve percent
+
+# The month is written "August". Kokoro reads "august", as NeMo writes it, as the adjective.
+2006-08-05~August fifth two thousand six
+august 23 2002~August twenty third two thousand two
+
+# Only the host of a link is read, because a whole link is too long to follow when spoken.
+http://www.ourdailynews.com.sm~WWW dot ourdailynews dot com dot SM
+https://www.ourdailynews.com.sm~WWW dot ourdailynews dot com dot SM
+https://developer.nvidia.com/drive-sim-early-access-program~developer dot nvidia dot com
+https://developer.nvidia.com/cv-cuda/early-access~developer dot nvidia dot com
+https://www.nvidia.com/dgx-basepod~WWW dot nvidia dot com
+https://www.nvidia.com/dgx-basepod.sm/3~WWW dot nvidia dot com
+http://www.nvidia.com/rtx-6000~WWW dot nvidia dot com
+https://www.nvidia.com/dgx-basepod/~WWW dot nvidia dot com
+
+# Only the file name of a path is read.
+file:///c/code/NeMo/docs/build/html/processing/intro.html~intro dot H T M L
+file:///photos/image.jpg~image dot J peg
+
+# The last part of a path after a domain or email is read as a word. NeMo spells "sm" out here, but not in
+# "ourdailynews.com/12-sm".
+www.ourdailynews.com/123-sm~WWW dot ourdailynews dot com slash one two three dash sm
+sdf@gmail.com/123-sm~sdf at gmail dot com slash one two three dash sm
+sdf@gmail.abc/123-sm~sdf at gmail dot ABC slash one two three dash sm
+sdf@gmail.abc/123456-sm~sdf at gmail dot ABC slash one two three four five six dash sm
+
+# An invalid ordinal is read as the number followed by its letters.
+111st~one hundred eleven st
+
+# Roman numerals after a name, such as "Rocky IV", are ambiguous, so they're read only after words such as "Chapter".
+Sam II~Sam II
