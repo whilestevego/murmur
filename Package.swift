@@ -9,7 +9,7 @@ let package = Package(
     .executable(name: "murmurd", targets: ["murmurd"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.15.5")
+    .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.17.7")
   ],
   targets: [
     // The client doesn't link FluidAudio, so it starts in milliseconds. It only sends requests to murmurd.
