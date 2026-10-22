@@ -17,7 +17,7 @@ under the thread and address sanitizers. Compiler warnings fail the build and th
 - Tests never read the user's configuration, such as `~/.config/murmur/pronunciations`. They use the files in
   `Tests/Fixtures` instead.
 - Code that reads configuration takes the file as a parameter, so that a test can pass a fixture.
-- Anything that starts `murmurd` for a test sets `MURMUR_PRONUNCIATIONS` to `Tests/Fixtures/pronunciations`.
+- Anything that starts `murmurd` for a test passes `--pronunciations Tests/Fixtures/pronunciations`.
 
 ## Comments
 

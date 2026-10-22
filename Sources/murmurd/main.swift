@@ -129,7 +129,7 @@ actor Speaker {
         request.voice = Defaults.voice
       }
     }
-    for (sentence, sounds) in prepare(request.text, Pronunciations.load(from: Pronunciations.file), lexicon) {
+    for (sentence, sounds) in prepare(request.text, Pronunciations.load(from: request.pronunciationsFile), lexicon) {
       guard gen == generation else { return }
       let key = cacheKey(sentence + soundsKey(sounds), voice: request.voice, speed: request.speed)
       var samples = cache.get(key)
@@ -237,12 +237,19 @@ actor Speaker {
   }
 }
 
-// `murmurd --phonemes TEXT…` prints how the text will be pronounced, then exits.
+// `murmurd --phonemes [--pronunciations FILE] TEXT…` prints how the text will be pronounced, then exits. It takes the
+// same options as `murmur`.
 if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
-  let text = CommandLine.arguments.dropFirst(2).joined(separator: " ")
+  let request: Speech
+  do { request = try Speech(arguments: Array(CommandLine.arguments.dropFirst(2))) } catch {
+    FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
+    exit(1)
+  }
   do {
     let m = try await makeKokoro()
-    for (sentence, sounds) in prepare(text, Pronunciations.load(from: Pronunciations.file), Lexicon.load()) {
+    for (sentence, sounds) in prepare(
+      request.text, Pronunciations.load(from: request.pronunciationsFile), Lexicon.load())
+    {
       await m.setEnglishCustomLexicon(sounds)
       print(try await m.phonemes(for: sentence))
     }

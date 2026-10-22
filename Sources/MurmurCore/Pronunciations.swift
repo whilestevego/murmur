@@ -26,12 +26,9 @@ public enum Pronunciations {
 
   /// The file of custom pronunciations.
   ///
-  /// Each line has the form `WORD = spoken form`. Custom pronunciations take precedence over the defaults. The file is
-  /// `~/.config/murmur/pronunciations`, unless the `MURMUR_PRONUNCIATIONS` environment variable gives another path.
-  public static var file: URL {
-    ProcessInfo.processInfo.environment["MURMUR_PRONUNCIATIONS"].map { URL(fileURLWithPath: $0) }
-      ?? Paths.home.appendingPathComponent(".config/murmur/pronunciations")
-  }
+  /// Each line has the form `WORD = spoken form`. Custom pronunciations take precedence over the defaults. The
+  /// `--pronunciations` option chooses a different file.
+  public static let file = Paths.home.appendingPathComponent(".config/murmur/pronunciations")
 
   /// Parses the contents of a pronunciation file.
   ///
@@ -56,7 +53,7 @@ public enum Pronunciations {
   /// The file is read on every call, so an edit applies to the next request. A missing file adds no custom
   /// pronunciations.
   ///
-  /// - Parameter file: The file of custom pronunciations, which is usually ``file``.
+  /// - Parameter file: The file of custom pronunciations.
   /// - Returns: The spoken form of each word.
   public static func load(from file: URL) -> [String: String] {
     let mine = (try? String(contentsOf: file, encoding: .utf8)).map(parse) ?? [:]
