@@ -31,7 +31,7 @@ jobs:
       - run: make lint
 
   build:
-    name: Release build
+    name: Release build and NeMo cases
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -43,9 +43,17 @@ jobs:
           path: .build
           key: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-${{ hashFiles('Package.resolved') }}
           restore-keys: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-
+      # Without an installed bundle, FluidAudio downloads the Kokoro model here, which is about 200 MB. The model changes
+      # only with FluidAudio's version.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/fluidaudio
+          key: fluidaudio-models-${{ hashFiles('Package.resolved') }}
       # These are the binaries that make install copies. Package.resolved must be up to date. Each product needs its own
       # call, because swift build builds only the last --product it's given.
       - run: $BUILD --product murmur && $BUILD --product murmurd
+      # This scores the murmurd that was just built. make nemo would build it again with different flags.
+      - run: SHOW=1 python3 Tests/nemo/score.py
 
   test:
     name: Tests
@@ -82,25 +90,3 @@ jobs:
           key: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-${{ hashFiles('Package.resolved') }}
           restore-keys: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-
       - run: $BUILD
-
-  nemo:
-    name: NeMo normalization cases
-    runs-on: macos-26
-    timeout-minutes: 30
-    env:
-      # make nemo runs this build first.
-      BUILD: swift build -c release
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/cache@v6
-        with:
-          path: .build
-          key: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-
-      # Without an installed bundle, FluidAudio downloads the Kokoro model here, which is about 200 MB. The model changes
-      # only with FluidAudio's version.
-      - uses: actions/cache@v6
-        with:
-          path: ~/.cache/fluidaudio
-          key: fluidaudio-models-${{ hashFiles('Package.resolved') }}
-      - run: make nemo SHOW=1
