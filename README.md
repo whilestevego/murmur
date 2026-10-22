@@ -76,9 +76,9 @@ Before Kokoro sees the text, murmur fixes what it would misread:
   (`12kg`, `2°C`, `200ms`), decades, ranges, phone numbers, IP addresses, emails, Roman
   numerals after words like Chapter, and simple math. These follow
   [NVIDIA NeMo's](https://github.com/NVIDIA/NeMo-text-processing) English text normalization:
-  `make nemo` scores murmur against NeMo's 433 test cases. `Tests/nemo/expected.txt` gives
-  murmur's own reading for the cases where it differs from NeMo on purpose, and
-  `Tests/nemo/gaps.txt` lists the cases murmur doesn't read well yet, each with its reason.
+  `make nemo` scores murmur against NeMo's 433 test cases. `Tests/nemo/exceptions.toml` gives
+  murmur's own reading for the cases where it differs from NeMo on purpose, and lists the
+  cases murmur doesn't read well yet, each group with its reason.
 - **Code:** links (`https://github.com/a/b` → "github dot com"), file paths and names
   (`~/app/main.swift` → "main dot swift"), versions (`v1.2.3` → "version 1 point 2 point 3"),
   dotted names (`process.env`), `snake_case`, and `camelCase` names Kokoro doesn't know.

@@ -6,12 +6,13 @@ reading of the written form match its phonemes for the spoken form. Comparing ph
 for FluidAudio to read still match NeMo's words. Stress marks, punctuation and the word "and" are ignored, so "one
 hundred and twenty three" matches "one hundred twenty three".
 
-For the cases in expected.txt, murmur deliberately reads the written form differently from NeMo, so they're checked
-against murmur's reading instead. The cases in gaps.txt are ones murmur doesn't read well yet. They're counted as gaps
-rather than failures, and a gap that starts to match NeMo is reported so that it can be removed. The script exits with
-status 1 if any other case fails. Set SHOW=1 to print the failures. Run it with make nemo.
+exceptions.toml lists the cases that aren't checked against NeMo's reading. For a choice, murmur deliberately reads the
+written form differently, so the case is checked against murmur's reading instead. A gap is a case that murmur doesn't
+read well yet. Gaps are counted as gaps rather than failures, and a gap that starts to match NeMo is reported so that it
+can be removed. The script exits with status 1 if any other case fails. Set SHOW=1 to print the failures. Run it with
+make nemo.
 """
-import os, re, subprocess, sys
+import os, re, subprocess, sys, tomllib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MURMURD = os.path.join(HERE, '../../.build/release/murmurd')
@@ -40,20 +41,42 @@ def plain(s):
     """Returns phonemes without stress marks, punctuation or the word "and"."""
     return re.sub(r'\s+', ' ', re.sub(r'\bænd\b', ' ', re.sub(r'[ˈˌ.,!?;:—…"()-]', ' ', s))).strip()
 
-def entries(name):
-    """Returns the written form and the text after it on each line of a file, without comments."""
-    lines = [l.rstrip('\n') for l in open(os.path.join(HERE, name))]
-    return dict(l.split('~', 1) for l in lines if '~' in l and not l.startswith('#'))
+def exceptions():
+    """Returns murmur's reading for each choice and the reason for each gap, from exceptions.toml.
 
-expected, gaps = entries('expected.txt'), entries('gaps.txt')
-files = sorted(f for f in os.listdir(HERE) if f.endswith('.txt') and f not in ('expected.txt', 'gaps.txt'))
+    Exits with a message if the file doesn't have the expected structure, or lists a case twice.
+    """
+    path = os.path.join(HERE, 'exceptions.toml')
+    with open(path, 'rb') as f:
+        data = tomllib.load(f)
+    if unknown := set(data) - {'choice', 'gap'}:
+        sys.exit(f'{path}: unknown tables {sorted(unknown)}')
+    expected, gaps = {}, {}
+    for kind, groups in data.items():
+        for group in groups:
+            if set(group) != {'reason', 'cases'} or not isinstance(group['reason'], str):
+                sys.exit(f'{path}: each [[{kind}]] needs a reason and its cases, but got {sorted(group)}')
+            for case in group['cases']:
+                if kind == 'choice' and (not isinstance(case, dict) or set(case) != {'written', 'reading'}):
+                    sys.exit(f'{path}: each case of a choice needs a written form and a reading, but got {case!r}')
+                if kind == 'gap' and not isinstance(case, str):
+                    sys.exit(f'{path}: each case of a gap is its written form, but got {case!r}')
+                written = case['written'] if kind == 'choice' else case
+                if written in expected or written in gaps:
+                    sys.exit(f'{path}: {written!r} is listed twice')
+                if kind == 'choice':
+                    expected[written] = case['reading']
+                else:
+                    gaps[written] = group['reason']
+    return expected, gaps
+
+expected, gaps = exceptions()
+files = sorted(f for f in os.listdir(HERE) if f.endswith('.txt'))
 cases = {name: [l.rstrip('\n').split('~', 1) for l in open(os.path.join(HERE, name)) if '~' in l] for name in files}
 known = {written for name in files for written, _ in cases[name]}
 for written in (expected.keys() | gaps.keys()) - known:
-    sys.exit(f'{written!r} is in expected.txt or gaps.txt, but in none of the NeMo cases')
-for written in expected.keys() & gaps.keys():
-    sys.exit(f'{written!r} is in both expected.txt and gaps.txt')
-# A case in expected.txt is checked against murmur's reading instead of NeMo's.
+    sys.exit(f'{written!r} is in exceptions.toml, but in none of the NeMo cases')
+# A choice is checked against murmur's reading instead of NeMo's.
 cases = {name: [(written, expected.get(written, spoken)) for written, spoken in cases[name]] for name in files}
 # Every written and spoken form goes to murmurd in one call, because each call loads the model.
 said = iter(sounds([text for name in files for case in cases[name] for text in case]))
@@ -74,5 +97,5 @@ for name in files:
         print('\n'.join(failed))
 print(f'{"all":14} {totals[0]:3} pass  {totals[1]:2} gaps  {totals[2]:2} fail  (of {sum(totals)})')
 for written in fixed:
-    print(f'{written!r} now matches NeMo, so it can be removed from gaps.txt')
+    print(f'{written!r} now matches NeMo, so it can be removed from the gaps in exceptions.toml')
 sys.exit(1 if totals[2] else 0)
