@@ -43,8 +43,9 @@ jobs:
           path: .build
           key: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-${{ hashFiles('Package.resolved') }}
           restore-keys: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-
-      # This builds the binaries that make install copies. Package.resolved must be up to date.
-      - run: $BUILD
+      # These are the binaries that make install copies. Package.resolved must be up to date. Each product needs its own
+      # call, because swift build builds only the last --product it's given.
+      - run: $BUILD --product murmur && $BUILD --product murmurd
 
   test:
     name: Tests
