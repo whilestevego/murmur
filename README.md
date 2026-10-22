@@ -89,7 +89,8 @@ Before Kokoro sees the text, murmur fixes what it would misread:
   (`ID` is read as "id" otherwise) and tech words it spells out or mangles (`JSON`, `macOS`,
   `kubectl`, `stdout`…).
 
-Add your own in `~/.config/murmur/pronunciations`, one per line. Each is either a
+Add your own in `~/.config/murmur/pronunciations`, or in the file that the
+`MURMUR_PRONUNCIATIONS` environment variable names, one per line. Each is either a
 respelling or exact sounds between slashes, in the notation `murmur phonemes` prints. Exact
 sounds also apply to the word's endings: `rebase` below fixes `rebased` and `rebasing` too.
 Yours win over the built-in list and apply to the next thing said:

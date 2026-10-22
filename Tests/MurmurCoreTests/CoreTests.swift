@@ -78,6 +78,28 @@ final class PronunciationTests: XCTestCase {
     XCTAssertEqual(pronounce("(ID)", d), "(I D)")
   }
 
+  /// The pronunciation file that the tests use in place of the user's own.
+  let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent(
+    "../Fixtures/pronunciations")
+
+  func testLoadPutsTheFileOverTheDefaults() {
+    let loaded = Pronunciations.load(from: fixture)
+    XCTAssertEqual(loaded["npm"], "node package manager")
+    XCTAssertEqual(loaded["GIF"], "jif")
+    XCTAssertEqual(loaded["JSON"], "Jason")
+  }
+
+  func testAMissingFileAddsNothing() {
+    let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    XCTAssertEqual(Pronunciations.load(from: missing), Pronunciations.defaults)
+  }
+
+  func testTheEnvironmentChoosesTheFile() {
+    setenv("MURMUR_PRONUNCIATIONS", fixture.path, 1)
+    defer { unsetenv("MURMUR_PRONUNCIATIONS") }
+    XCTAssertEqual(Pronunciations.file, fixture)
+  }
+
   func testParseFile() {
     let mine = Pronunciations.parse("# mine\nGIF = jif\n  SQL=S Q L \nbroken line\n= nothing\n")
     XCTAssertEqual(mine, ["GIF": "jif", "SQL": "S Q L"])

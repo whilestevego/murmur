@@ -129,7 +129,7 @@ actor Speaker {
         request.voice = Defaults.voice
       }
     }
-    for (sentence, sounds) in prepare(request.text, Pronunciations.load(), lexicon) {
+    for (sentence, sounds) in prepare(request.text, Pronunciations.load(from: Pronunciations.file), lexicon) {
       guard gen == generation else { return }
       let key = cacheKey(sentence + soundsKey(sounds), voice: request.voice, speed: request.speed)
       var samples = cache.get(key)
@@ -242,7 +242,7 @@ if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
   let text = CommandLine.arguments.dropFirst(2).joined(separator: " ")
   do {
     let m = try await makeKokoro()
-    for (sentence, sounds) in prepare(text, Pronunciations.load(), Lexicon.load()) {
+    for (sentence, sounds) in prepare(text, Pronunciations.load(from: Pronunciations.file), Lexicon.load()) {
       await m.setEnglishCustomLexicon(sounds)
       print(try await m.phonemes(for: sentence))
     }

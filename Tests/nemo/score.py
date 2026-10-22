@@ -13,12 +13,16 @@ import os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MURMURD = os.path.join(HERE, '../../.build/release/murmurd')
+# murmurd reads this file in place of the user's own pronunciations, so that the scores don't depend on them.
+PRONUNCIATIONS = os.path.join(HERE, '../Fixtures/pronunciations')
+assert os.path.isfile(PRONUNCIATIONS), f'{PRONUNCIATIONS} is missing'
 # A word placed between cases, so that the output can be split back into cases.
 MARK = 'Zebra'
 
 def sounds(texts):
     """Returns Kokoro's phonemes for each text, in order."""
-    out = subprocess.run([MURMURD, '--phonemes', f'\n{MARK}\n'.join(texts) + f'\n{MARK}'], capture_output=True, text=True, check=True).stdout
+    out = subprocess.run([MURMURD, '--phonemes', f'\n{MARK}\n'.join(texts) + f'\n{MARK}'], capture_output=True, text=True, check=True,
+                         env={**os.environ, 'MURMUR_PRONUNCIATIONS': PRONUNCIATIONS}).stdout
     groups, current = [], []
     for line in out.splitlines():
         if re.sub(r'[ˈˌ.,!?;:\s]', '', line) == 'zibɹə':

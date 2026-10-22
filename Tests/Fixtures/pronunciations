@@ -1,0 +1,6 @@
+# The custom pronunciations that every test uses in place of the user's own file.
+#
+# The first entry overrides a default, and the second adds a word. Neither word is in the NeMo cases, so these
+# entries don't change the scores.
+npm = node package manager
+GIF = jif
