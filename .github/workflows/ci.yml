@@ -5,10 +5,11 @@ on:
   push:
     branches: [main]
 
-# A new push cancels the checks that are still running for an older commit on the same branch.
+# On a pull request, a new push cancels the run for the older commit. On main, every commit gets its own run, so that
+# each merge gets a result and saves its caches.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -17,43 +18,62 @@ env:
   # This is the Xcode version used for development. Pinning it keeps swift-format's rules the same in CI as locally.
   DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
 
-# Each build job caches its build directory. The key changes with the Xcode version and the resolved dependencies, and
-# a job with a new key starts from its last cache, so that only what changed is rebuilt.
+# Each build job caches its build directory. The key holds the Xcode version and the job's exact build command, because
+# SwiftPM rebuilds everything when the flags change. It also holds Package.resolved. A job whose key changed only with
+# Package.resolved starts from its last cache, so that only the changed dependencies are rebuilt.
+#
+# Actions are pinned to commit SHAs, because a version tag can be moved to other code. Dependabot keeps them up to date.
 jobs:
   lint:
     name: Lint
     runs-on: macos-26
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - name: Check that the pinned Xcode is on the runner
+        run: |
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::$DEVELOPER_DIR isn't on the runner image. Change DEVELOPER_DIR in this workflow, and the local Xcode, to a version that the image has."
+            exit 1
+          fi
+      # Nothing pushes, so the token isn't kept in .git/config for later steps.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: make lint
 
   build:
-    name: Release build
+    name: Release build and NeMo cases
     runs-on: macos-26
     timeout-minutes: 30
+    env:
+      BUILD: swift build -c release --force-resolved-versions -Xswiftc -warnings-as-errors
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/cache@v6
+      - name: Check that the pinned Xcode is on the runner
+        run: |
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::$DEVELOPER_DIR isn't on the runner image. Change DEVELOPER_DIR in this workflow, and the local Xcode, to a version that the image has."
+            exit 1
+          fi
+      # Nothing pushes, so the token isn't kept in .git/config for later steps.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
-          key: spm-release-${{ env.DEVELOPER_DIR }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: spm-release-${{ env.DEVELOPER_DIR }}-
-      # This builds the binaries that make install copies. Package.resolved must be up to date.
-      - run: swift build -c release --force-resolved-versions -Xswiftc -warnings-as-errors
-
-  test:
-    name: Tests
-    runs-on: macos-26
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/cache@v6
+          key: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-
+      # Without an installed bundle, FluidAudio downloads the Kokoro model here, which is about 200 MB. The model changes
+      # only with FluidAudio's version.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .build
-          key: spm-debug-${{ env.DEVELOPER_DIR }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: spm-debug-${{ env.DEVELOPER_DIR }}-
-      - run: swift test --force-resolved-versions -Xswiftc -warnings-as-errors
+          path: ~/.cache/fluidaudio
+          key: fluidaudio-models-${{ hashFiles('Package.resolved') }}
+      # These are the binaries that make install copies. Package.resolved must be up to date. Each product needs its own
+      # call, because swift build builds only the last --product it's given.
+      - run: $BUILD --product murmur && $BUILD --product murmurd
+      # This scores the murmurd that was just built. make nemo would build it again with different flags.
+      - run: SHOW=1 python3 Tests/nemo/score.py
 
   sanitize:
     name: Tests with ${{ matrix.sanitizer }} sanitizer
@@ -63,32 +83,30 @@ jobs:
       fail-fast: false
       matrix:
         # The thread sanitizer finds data races, and the address sanitizer finds memory errors in the code that uses
-        # unsafe pointers.
+        # unsafe pointers. Both run every test, so there's no separate job for the tests without a sanitizer.
         sanitizer: [thread, address]
+    env:
+      BUILD: swift test --force-resolved-versions --sanitize=${{ matrix.sanitizer }} -Xswiftc -warnings-as-errors
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/cache@v6
+      - name: Check that the pinned Xcode is on the runner
+        run: |
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::$DEVELOPER_DIR isn't on the runner image. Change DEVELOPER_DIR in this workflow, and the local Xcode, to a version that the image has."
+            exit 1
+          fi
+      # Nothing pushes, so the token isn't kept in .git/config for later steps.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
-          key: spm-${{ matrix.sanitizer }}-${{ env.DEVELOPER_DIR }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: spm-${{ matrix.sanitizer }}-${{ env.DEVELOPER_DIR }}-
-      - run: swift test --force-resolved-versions --sanitize=${{ matrix.sanitizer }}
-
-  nemo:
-    name: NeMo normalization cases
-    runs-on: macos-26
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/cache@v6
-        with:
-          path: .build
-          key: spm-nemo-${{ env.DEVELOPER_DIR }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: spm-nemo-${{ env.DEVELOPER_DIR }}-
-      # Without an installed bundle, FluidAudio downloads the Kokoro model here, which is about 200 MB. The model changes
-      # only with FluidAudio's version.
-      - uses: actions/cache@v6
+          key: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-
+      # The lexicon test reads FluidAudio's word list from the model directory, and skips if it's missing. Only the
+      # release build job downloads the model and saves its cache, so these jobs just restore it.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/fluidaudio
           key: fluidaudio-models-${{ hashFiles('Package.resolved') }}
-      - run: make nemo SHOW=1
+      - run: $BUILD

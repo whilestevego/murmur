@@ -3,8 +3,11 @@ BIN = .build/release
 
 .PHONY: build test nemo format lint install uninstall
 
+# Building each product on its own skips FluidAudio's command-line tool, which murmur doesn't use. swift build builds
+# only the last --product it's given, so each product needs its own call.
 build: ## Builds murmur and murmurd for release.
-	swift build -c release
+	swift build -c release --product murmur
+	swift build -c release --product murmurd
 
 test:
 	swift test
