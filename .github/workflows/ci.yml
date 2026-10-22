@@ -5,10 +5,11 @@ on:
   push:
     branches: [main]
 
-# A new push cancels the checks that are still running for an older commit on the same branch.
+# On a pull request, a new push cancels the run for the older commit. On main, every commit gets its own run, so that
+# each merge gets a result and saves its caches.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
