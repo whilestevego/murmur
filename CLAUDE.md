@@ -9,8 +9,8 @@ Swift text-to-speech for the terminal:
 Run `make test`, `make lint` and `make format`. Text normalization is scored with `make nemo`, which needs the model
 installed.
 
-CI runs on every pull request. It runs the lint, a release build and the tests, and runs the tests again under the
-thread and address sanitizers. Compiler warnings fail the build and the tests.
+CI runs on every pull request. It runs the lint, a release build, the tests and `make nemo`, and runs the tests again
+under the thread and address sanitizers. Compiler warnings fail the build and the tests.
 
 ## Comments
 

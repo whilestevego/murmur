@@ -73,3 +73,22 @@ jobs:
           key: spm-${{ matrix.sanitizer }}-${{ env.DEVELOPER_DIR }}-${{ hashFiles('Package.resolved') }}
           restore-keys: spm-${{ matrix.sanitizer }}-${{ env.DEVELOPER_DIR }}-
       - run: swift test --force-resolved-versions --sanitize=${{ matrix.sanitizer }}
+
+  nemo:
+    name: NeMo normalization cases
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: .build
+          key: spm-nemo-${{ env.DEVELOPER_DIR }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-nemo-${{ env.DEVELOPER_DIR }}-
+      # Without an installed bundle, FluidAudio downloads the Kokoro model here, which is about 200 MB. The model changes
+      # only with FluidAudio's version.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/fluidaudio
+          key: fluidaudio-models-${{ hashFiles('Package.resolved') }}
+      - run: make nemo SHOW=1

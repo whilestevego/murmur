@@ -34,12 +34,15 @@ def plain(s):
     return re.sub(r'\s+', ' ', re.sub(r'\bænd\b', ' ', re.sub(r'[ˈˌ.,!?;:—…"()-]', ' ', s))).strip()
 
 deviations = {l.split('~')[0] for l in open(os.path.join(HERE, 'deviations.txt')) if '~' in l and not l.startswith('#')}
+files = sorted(f for f in os.listdir(HERE) if f.endswith('.txt') and f != 'deviations.txt')
+cases = {name: [l.rstrip('\n').split('~', 1) for l in open(os.path.join(HERE, name)) if '~' in l] for name in files}
+# Every written and spoken form goes to murmurd in one call, because each call loads the model.
+said = iter(sounds([text for name in files for case in cases[name] for text in case]))
 totals = [0, 0, 0]
-for name in sorted(f for f in os.listdir(HERE) if f.endswith('.txt') and f != 'deviations.txt'):
-    cases = [l.rstrip('\n').split('~', 1) for l in open(os.path.join(HERE, name)) if '~' in l]
-    got, want = sounds([w for w, _ in cases]), sounds([s for _, s in cases])
+for name in files:
     counts, failed = [0, 0, 0], []
-    for (written, spoken), g, w in zip(cases, got, want):
+    for written, spoken in cases[name]:
+        g, w = next(said), next(said)
         kind = 0 if plain(g) == plain(w) else 1 if written in deviations else 2
         counts[kind] += 1
         if kind == 2:

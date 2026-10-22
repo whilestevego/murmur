@@ -113,8 +113,8 @@ make format   # format the Swift sources with swift-format (ships with Swift 6)
 make lint     # fail on formatting or lint problems
 ```
 
-CI runs the same lint and tests on every pull request, along with a release build and the tests under the thread and
-address sanitizers. Compiler warnings count as errors.
+CI runs the same lint, tests and NeMo scoring on every pull request, along with a release build and the tests under the
+thread and address sanitizers. Compiler warnings count as errors.
 
 Logs: `~/Library/Caches/murmur/murmurd.log`.
 
