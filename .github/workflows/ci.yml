@@ -103,4 +103,10 @@ jobs:
           path: .build
           key: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-${{ hashFiles('Package.resolved') }}
           restore-keys: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-
+      # The lexicon test reads FluidAudio's word list from the model directory, and skips if it's missing. Only the
+      # release build job downloads the model and saves its cache, so these jobs just restore it.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/fluidaudio
+          key: fluidaudio-models-${{ hashFiles('Package.resolved') }}
       - run: $BUILD
