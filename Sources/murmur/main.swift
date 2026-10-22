@@ -45,6 +45,9 @@ func usage(_ st: Style) -> String {
     row(st.accent("-v, --voice") + " " + st.arg("NAME"), "voice to speak with " + st.dim("(default af_heart)")),
     row(st.accent("-s, --speed") + " " + st.arg("X"), "speaking rate " + st.dim("(default 1.0)")),
     row(st.accent("-i, --interrupt"), "cut off what's playing instead of queueing"),
+    row(
+      st.accent("--pronunciations") + " " + st.arg("FILE"),
+      "custom pronunciations " + st.dim("(default ~/.config/murmur/pronunciations)")),
     row(st.accent("--"), "end of options: the rest is text, even if it starts with -"),
     row(st.accent("-h, --help"), "show this help"),
     "",

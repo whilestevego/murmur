@@ -32,9 +32,16 @@ final class CoreTests: XCTestCase {
   }
 
   func testRequestRoundTrips() throws {
-    for r in [Request.speak(Speech(text: "Hello", voice: "bm_george", speed: 1.1, interrupt: true)), .stop] {
+    let speech = Speech(text: "Hello", voice: "bm_george", speed: 1.1, interrupt: true, pronunciations: "/tmp/p")
+    for r in [Request.speak(speech), .speak(Speech(text: "Hi")), .stop] {
       XCTAssertEqual(try JSONDecoder().decode(Request.self, from: JSONEncoder().encode(r)), r)
     }
+  }
+
+  /// Tests that a request without a pronunciations path still decodes, as one from an older client would.
+  func testARequestWithoutPronunciationsDecodes() throws {
+    let json = #"{"speak":{"_0":{"text":"Hi","voice":"af_heart","speed":1,"interrupt":false}}}"#
+    XCTAssertEqual(try JSONDecoder().decode(Request.self, from: Data(json.utf8)), .speak(Speech(text: "Hi")))
   }
 
   func testObjCTryCatchesRaisedExceptions() {
@@ -76,6 +83,27 @@ final class PronunciationTests: XCTestCase {
     XCTAssertEqual(pronounce("The IDs match; parse the JSON.", d), "The I Ds match; parse the Jason.")
     XCTAssertEqual(pronounce("an id, an IDEA, a GUID, ID_1", d), "an id, an IDEA, a GUID, ID_1")
     XCTAssertEqual(pronounce("(ID)", d), "(I D)")
+  }
+
+  /// The pronunciation file that the tests use in place of the user's own.
+  let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent(
+    "../Fixtures/pronunciations")
+
+  func testLoadPutsTheFileOverTheDefaults() {
+    let loaded = Pronunciations.load(from: fixture)
+    XCTAssertEqual(loaded["npm"], "node package manager")
+    XCTAssertEqual(loaded["GIF"], "jif")
+    XCTAssertEqual(loaded["JSON"], "Jason")
+  }
+
+  func testAMissingFileAddsNothing() {
+    let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    XCTAssertEqual(Pronunciations.load(from: missing), Pronunciations.defaults)
+  }
+
+  func testTheRequestChoosesTheFile() {
+    XCTAssertEqual(Speech(pronunciations: fixture.path).pronunciationsFile, URL(fileURLWithPath: fixture.path))
+    XCTAssertEqual(Speech().pronunciationsFile, Pronunciations.file)
   }
 
   func testParseFile() {
@@ -288,6 +316,19 @@ final class ArgumentTests: XCTestCase {
     XCTAssertEqual(try speech("-i", "--", "-v", "is", "a", "flag"), Speech(text: "-v is a flag", interrupt: true))
   }
 
+  func testPronunciationsOption() throws {
+    let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent(
+      "../Fixtures/pronunciations")
+    let speech = try speech("--pronunciations", fixture.path, "Hi")
+    XCTAssertEqual(speech.pronunciations, fixture.standardizedFileURL.path)
+    XCTAssertEqual(speech.text, "Hi")
+    // A relative path is resolved against the current directory, because murmurd runs in another one.
+    let cwd = FileManager.default.currentDirectoryPath
+    try XCTSkipUnless(fixture.standardizedFileURL.path.hasPrefix(cwd + "/"), "the tests aren't running in the package")
+    let relative = String(fixture.standardizedFileURL.path.dropFirst(cwd.count + 1))
+    XCTAssertEqual(try self.speech("--pronunciations", relative).pronunciations, fixture.standardizedFileURL.path)
+  }
+
   func testBadOptions() {
     XCTAssertEqual(usageError("-v"), "--voice needs a name")
     XCTAssertEqual(usageError("--voice", "xx_nobody", "Hi"), "unknown voice xx_nobody (see: murmur voices)")
@@ -295,6 +336,8 @@ final class ArgumentTests: XCTestCase {
       XCTAssertEqual(usageError("-s", speed, "Hi"), "--speed needs a number", speed)
     }
     XCTAssertEqual(usageError("Hi", "--speed"), "--speed needs a number")
+    XCTAssertEqual(usageError("--pronunciations"), "--pronunciations needs a file")
+    XCTAssertEqual(usageError("--pronunciations", "/nonexistent/p", "Hi"), "no pronunciations file at /nonexistent/p")
   }
 }
 

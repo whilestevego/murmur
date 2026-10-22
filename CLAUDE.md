@@ -9,6 +9,16 @@ Swift text-to-speech for the terminal:
 Run `make test`, `make lint` and `make format`. Text normalization is scored with `make nemo`, which needs the model
 installed.
 
+CI runs on every pull request. It runs the lint, a release build, the tests and `make nemo`, and runs the tests again
+under the thread and address sanitizers. Compiler warnings fail the build and the tests.
+
+## Tests
+
+- Tests never read the user's configuration, such as `~/.config/murmur/pronunciations`. They use the files in
+  `Tests/Fixtures` instead.
+- Code that reads configuration takes the file as a parameter, so that a test can pass a fixture.
+- Anything that starts `murmurd` for a test passes `--pronunciations Tests/Fixtures/pronunciations`.
+
 ## Comments
 
 These rules apply to every comment in the repository:

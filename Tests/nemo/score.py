@@ -13,12 +13,17 @@ import os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MURMURD = os.path.join(HERE, '../../.build/release/murmurd')
+# murmurd is given this file in place of the user's own pronunciations, so that the scores don't depend on them.
+PRONUNCIATIONS = os.path.join(HERE, '../Fixtures/pronunciations')
+assert os.path.isfile(PRONUNCIATIONS), f'{PRONUNCIATIONS} is missing'
 # A word placed between cases, so that the output can be split back into cases.
 MARK = 'Zebra'
 
 def sounds(texts):
     """Returns Kokoro's phonemes for each text, in order."""
-    out = subprocess.run([MURMURD, '--phonemes', f'\n{MARK}\n'.join(texts) + f'\n{MARK}'], capture_output=True, text=True, check=True).stdout
+    # The "--" keeps a case that starts with a dash, such as "-3", from being read as an option.
+    text = f'\n{MARK}\n'.join(texts) + f'\n{MARK}'
+    out = subprocess.run([MURMURD, '--phonemes', '--pronunciations', PRONUNCIATIONS, '--', text], capture_output=True, text=True, check=True).stdout
     groups, current = [], []
     for line in out.splitlines():
         if re.sub(r'[ˈˌ.,!?;:\s]', '', line) == 'zibɹə':
@@ -34,12 +39,15 @@ def plain(s):
     return re.sub(r'\s+', ' ', re.sub(r'\bænd\b', ' ', re.sub(r'[ˈˌ.,!?;:—…"()-]', ' ', s))).strip()
 
 deviations = {l.split('~')[0] for l in open(os.path.join(HERE, 'deviations.txt')) if '~' in l and not l.startswith('#')}
+files = sorted(f for f in os.listdir(HERE) if f.endswith('.txt') and f != 'deviations.txt')
+cases = {name: [l.rstrip('\n').split('~', 1) for l in open(os.path.join(HERE, name)) if '~' in l] for name in files}
+# Every written and spoken form goes to murmurd in one call, because each call loads the model.
+said = iter(sounds([text for name in files for case in cases[name] for text in case]))
 totals = [0, 0, 0]
-for name in sorted(f for f in os.listdir(HERE) if f.endswith('.txt') and f != 'deviations.txt'):
-    cases = [l.rstrip('\n').split('~', 1) for l in open(os.path.join(HERE, name)) if '~' in l]
-    got, want = sounds([w for w, _ in cases]), sounds([s for _, s in cases])
+for name in files:
     counts, failed = [0, 0, 0], []
-    for (written, spoken), g, w in zip(cases, got, want):
+    for written, spoken in cases[name]:
+        g, w = next(said), next(said)
         kind = 0 if plain(g) == plain(w) else 1 if written in deviations else 2
         counts[kind] += 1
         if kind == 2:

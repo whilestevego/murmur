@@ -24,6 +24,13 @@ public struct Speech: Codable, Equatable, Sendable {
   public var speed: Float
   /// A Boolean value that indicates whether to stop current and queued speech before speaking.
   public var interrupt: Bool
+  /// The absolute path of the file of custom pronunciations to use, or `nil` to use ``Pronunciations/file``.
+  public var pronunciations: String?
+
+  /// The file of custom pronunciations to use.
+  public var pronunciationsFile: URL {
+    pronunciations.map { URL(fileURLWithPath: $0) } ?? Pronunciations.file
+  }
 
   /// Creates a speech request.
   ///
@@ -32,21 +39,27 @@ public struct Speech: Codable, Equatable, Sendable {
   ///   - voice: The name of the voice, which must be in ``voiceCatalog``.
   ///   - speed: The speaking rate, where 1 is normal speed.
   ///   - interrupt: Whether to stop current and queued speech first.
-  public init(text: String = "", voice: String = Defaults.voice, speed: Float = 1, interrupt: Bool = false) {
+  ///   - pronunciations: The absolute path of a file of custom pronunciations, or `nil` for the default file.
+  public init(
+    text: String = "", voice: String = Defaults.voice, speed: Float = 1, interrupt: Bool = false,
+    pronunciations: String? = nil
+  ) {
     self.text = text
     self.voice = voice
     self.speed = speed
     self.interrupt = interrupt
+    self.pronunciations = pronunciations
   }
 
   /// Creates a speech request from command-line arguments.
   ///
-  /// The options are `-v` or `--voice`, `-s` or `--speed`, and `-i` or `--interrupt`. The remaining arguments are
-  /// joined with spaces to form the text. If there are none, ``text`` is empty.
+  /// The options are `-v` or `--voice`, `-s` or `--speed`, `-i` or `--interrupt`, and `--pronunciations`. A relative
+  /// pronunciations path is resolved against the current directory. The remaining arguments are joined with spaces to
+  /// form the text. If there are none, ``text`` is empty.
   ///
   /// - Parameter arguments: The arguments, without the program name.
-  /// - Throws: ``UsageError`` if an option is missing its value, names an unknown voice, or gives a speed that isn't a
-  ///   finite number greater than 0.
+  /// - Throws: ``UsageError`` if an option is missing its value, names an unknown voice, gives a speed that isn't a
+  ///   finite number greater than 0, or names a pronunciations file that doesn't exist.
   public init(arguments: [String]) throws(UsageError) {
     self.init()
     var args = arguments
@@ -66,6 +79,13 @@ public struct Speech: Codable, Equatable, Sendable {
         }
         speed = s
       case "-i", "--interrupt": interrupt = true
+      case "--pronunciations":
+        guard !args.isEmpty else { throw UsageError("--pronunciations needs a file") }
+        let file = URL(fileURLWithPath: args.removeFirst()).standardizedFileURL
+        guard FileManager.default.fileExists(atPath: file.path) else {
+          throw UsageError("no pronunciations file at \(file.path)")
+        }
+        pronunciations = file.path
       // Everything after "--" is text, even an argument that looks like an option.
       case "--":
         words += args
