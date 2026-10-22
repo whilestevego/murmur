@@ -21,13 +21,24 @@ env:
 # Each build job caches its build directory. The key holds the Xcode version and the job's exact build command, because
 # SwiftPM rebuilds everything when the flags change. It also holds Package.resolved. A job whose key changed only with
 # Package.resolved starts from its last cache, so that only the changed dependencies are rebuilt.
+#
+# Actions are pinned to commit SHAs, because a version tag can be moved to other code. Dependabot keeps them up to date.
 jobs:
   lint:
     name: Lint
     runs-on: macos-26
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - name: Check that the pinned Xcode is on the runner
+        run: |
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::$DEVELOPER_DIR isn't on the runner image. Change DEVELOPER_DIR in this workflow, and the local Xcode, to a version that the image has."
+            exit 1
+          fi
+      # Nothing pushes, so the token isn't kept in .git/config for later steps.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: make lint
 
   build:
@@ -37,15 +48,24 @@ jobs:
     env:
       BUILD: swift build -c release --force-resolved-versions -Xswiftc -warnings-as-errors
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/cache@v6
+      - name: Check that the pinned Xcode is on the runner
+        run: |
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::$DEVELOPER_DIR isn't on the runner image. Change DEVELOPER_DIR in this workflow, and the local Xcode, to a version that the image has."
+            exit 1
+          fi
+      # Nothing pushes, so the token isn't kept in .git/config for later steps.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
           key: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-${{ hashFiles('Package.resolved') }}
           restore-keys: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-
       # Without an installed bundle, FluidAudio downloads the Kokoro model here, which is about 200 MB. The model changes
       # only with FluidAudio's version.
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/fluidaudio
           key: fluidaudio-models-${{ hashFiles('Package.resolved') }}
@@ -68,8 +88,17 @@ jobs:
     env:
       BUILD: swift test --force-resolved-versions --sanitize=${{ matrix.sanitizer }} -Xswiftc -warnings-as-errors
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/cache@v6
+      - name: Check that the pinned Xcode is on the runner
+        run: |
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::$DEVELOPER_DIR isn't on the runner image. Change DEVELOPER_DIR in this workflow, and the local Xcode, to a version that the image has."
+            exit 1
+          fi
+      # Nothing pushes, so the token isn't kept in .git/config for later steps.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build
           key: spm-${{ env.DEVELOPER_DIR }}-${{ env.BUILD }}-${{ hashFiles('Package.resolved') }}
