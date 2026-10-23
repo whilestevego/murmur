@@ -173,8 +173,8 @@ func decades(_ text: String) -> String {
 
 /// Reads years aloud.
 ///
-/// For example, "1994" becomes "19 94", "1906" becomes "19 oh 6", and "1900" becomes "19 hundred". FluidAudio already
-/// reads 2000 to 2009 correctly, so those are left alone.
+/// For example, "1994" becomes "19 94", "1906" becomes "19 oh 6", and "1900" becomes "19 hundred". The years 2000 to
+/// 2009 are left alone, because they're read correctly as plain numbers.
 // ponytail: Any number from 1100 to 2099 is read as a year, unless a unit or a plural noun follows it, as in "2048
 // tokens". Looking at the surrounding words would catch more cases.
 func years(_ text: String) -> String {
@@ -198,6 +198,15 @@ private let yearPattern: String = {
   let noPlural = #"(?!\h+(?!(?:"# + notPlural + #")\b)[a-z]{2,}s\b)"#
   return year + noUnit + noPlural
 }()
+
+/// Writes the numbers from 1000 to 2099 in words.
+///
+/// FluidAudio reads any number in that range as a year, so "1000" would be read as "ten hundred". This runs after
+/// ``years(_:)``, so only the numbers that aren't years are left. For example, "2048 tokens" becomes "two thousand forty
+/// eight tokens".
+func yearlikeNumbers(_ text: String) -> String {
+  replace(text, #"(?<![\w.,])(1\d{3}|20\d{2})(?![\w]|[.,]\d)"#) { g in Int(g[1]).map(cardinalWords) }
+}
 
 // MARK: - Words for numbers, extensions and symbols
 

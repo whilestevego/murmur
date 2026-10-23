@@ -51,6 +51,8 @@ private func steps(_ knows: @escaping (String) -> Bool) -> [(name: String, apply
     ("romanChapters", romanChapters),
     ("loneSymbols", loneSymbols),
     ("identifiers", { identifiers($0, knows: knows) }),
+    // This runs last, so that it also sees the numbers that the other steps write, such as "number 1234".
+    ("yearlikeNumbers", yearlikeNumbers),
     ("squeezeSpaces", squeezeSpaces),
   ]
 }
