@@ -84,7 +84,7 @@ cases = [
 
 [[gap]]
 reason = "murmur has no rule for serial codes that mix letters, digits, dashes and slashes."
-cases = ["1-413-te-b-1-5", "b-c-1-5-b-s-b", "1/f-4s", "1/f", "123/261788/2021"]
+cases = ["1/f-4s", "1/f", "123/261788/2021"]
 
 [[gap]]
 reason = "murmur misreads \"25/235212\" in this serial code as a fraction."
@@ -103,8 +103,8 @@ reason = "Reading it correctly needs the meaning of \"card ending in\"."
 cases = ["i can use your card ending in 8876"]
 
 [[gap]]
-reason = "murmur doesn't read phone numbers that are spelled with letters."
-cases = ["1-800-GO-U-HAUL", "1-800-GO-2-HAUL"]
+reason = "murmur doesn't read a phone number that's spelled with letters."
+cases = ["1-800-GO-U-HAUL"]
 
 [[gap]]
 reason = "The input is garbled."

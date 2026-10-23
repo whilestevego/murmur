@@ -148,7 +148,7 @@ final class NormalizeTests: XCTestCase {
       ("v1.2.3, 0.15.5 and v2", "version 1 point 2 point 3, 0 point 15 point 5 and version 2"),
       ("on 2026-10-19, July 4 or 17 may 2010", "on October 19th 20 26, July 4th or the 17th of May 20 10"),
       ("we may 5 times", "we may 5 times"),
-      ("1,000 users, 2048 tokens, in 1994", "1000 users, 2048 tokens, in 19 94"),
+      ("1,000 users, 2048 tokens, in 1994", "one thousand users, two thousand forty eight tokens, in 19 94"),
       (
         "$5, $1, $5.50, $0.05, $2M, $20/mo",
         "5 dollars, 1 dollar, 5 dollars 50 cents, 5 cents, 2 million dollars, 20 dollars per month"
@@ -193,7 +193,7 @@ final class NormalizeTests: XCTestCase {
       ("open file:///Users/me/src/app/main.swift", "open main dot swift"),
       ("C++ and x++", "C plus plus and x plus plus"),
       ("i.e. this", "i.e. this"),
-      ("a t2000, not ab9453", "a t 2000, not ab 9 4 5 3"),
+      ("a t2000, not ab9453", "a t two thousand, not ab 9 4 5 3"),
     ]
     for (input, spoken) in cases { XCTAssertEqual(normalize(input), spoken, input) }
   }

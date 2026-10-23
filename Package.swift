@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 let package = Package(
@@ -9,7 +9,9 @@ let package = Package(
     .executable(name: "murmurd", targets: ["murmurd"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.15.5")
+    // FluidAudio's default trait adds NeMo text normalization, which would normalize the text a second time after
+    // murmur's own rules. Turning it off also keeps its prebuilt Rust library out of murmurd.
+    .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.17.7", traits: [])
   ],
   targets: [
     // The client doesn't link FluidAudio, so it starts in milliseconds. It only sends requests to murmurd.
