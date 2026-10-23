@@ -1,0 +1,111 @@
+# The NeMo cases that score.py doesn't check against NeMo's reading.
+#
+# A choice is a group of cases that murmur deliberately reads differently from NeMo. Each case gives murmur's reading,
+# and score.py checks the case against it, so a change in how murmur reads it fails the score. Numbers are written in
+# words, so that the check doesn't depend on how FluidAudio reads digits.
+#
+# A gap is a group of cases that murmur doesn't read well yet. score.py counts them as gaps rather than failures, and
+# reports a gap that starts to match NeMo, so that it can be removed.
+
+[[choice]]
+reason = "A number without commas is read as an amount. NeMo reads it digit by digit."
+cases = [
+  { written = "13000", reading = "thirteen thousand" },
+  { written = "123000", reading = "one hundred twenty three thousand" },
+]
+
+[[choice]]
+reason = "A dash between numbers is read as \"to\"."
+cases = [
+  { written = "978-0", reading = "nine hundred seventy eight to zero" },
+  { written = "from 2-10", reading = "from two to ten" },
+  { written = "2-5", reading = "two to five" },
+  { written = "1-8090", reading = "one to eight thousand ninety" },
+]
+
+[[choice]]
+reason = "Signs between numbers are read as math, and units after a number as words."
+cases = [
+  { written = "2x8", reading = "two by eight" },
+  { written = "2+3 m2", reading = "two plus three square meters" },
+  { written = "2*8", reading = "two times eight" },
+  { written = "4s", reading = "four seconds" },
+  { written = "3 cc/s", reading = "three cc per second" },
+  { written = "$12@12%", reading = "twelve dollars at twelve percent" },
+]
+
+[[choice]]
+reason = "The month is written \"August\". Kokoro reads \"august\", as NeMo writes it, as the adjective."
+cases = [
+  { written = "2006-08-05", reading = "August fifth two thousand six" },
+  { written = "august 23 2002", reading = "August twenty third two thousand two" },
+]
+
+[[choice]]
+reason = "Only the host of a link is read, because a whole link is too long to follow when spoken."
+cases = [
+  { written = "http://www.ourdailynews.com.sm", reading = "WWW dot ourdailynews dot com dot SM" },
+  { written = "https://www.ourdailynews.com.sm", reading = "WWW dot ourdailynews dot com dot SM" },
+  { written = "https://developer.nvidia.com/drive-sim-early-access-program", reading = "developer dot nvidia dot com" },
+  { written = "https://developer.nvidia.com/cv-cuda/early-access", reading = "developer dot nvidia dot com" },
+  { written = "https://www.nvidia.com/dgx-basepod", reading = "WWW dot nvidia dot com" },
+  { written = "https://www.nvidia.com/dgx-basepod.sm/3", reading = "WWW dot nvidia dot com" },
+  { written = "http://www.nvidia.com/rtx-6000", reading = "WWW dot nvidia dot com" },
+  { written = "https://www.nvidia.com/dgx-basepod/", reading = "WWW dot nvidia dot com" },
+]
+
+[[choice]]
+reason = "Only the file name of a path is read."
+cases = [
+  { written = "file:///c/code/NeMo/docs/build/html/processing/intro.html", reading = "intro dot H T M L" },
+  { written = "file:///photos/image.jpg", reading = "image dot J peg" },
+]
+
+[[choice]]
+reason = "The last part of a path after a domain or email is read as a word. NeMo spells \"sm\" out here, but not in \"ourdailynews.com/12-sm\"."
+cases = [
+  { written = "www.ourdailynews.com/123-sm", reading = "WWW dot ourdailynews dot com slash one two three dash sm" },
+  { written = "sdf@gmail.com/123-sm", reading = "sdf at gmail dot com slash one two three dash sm" },
+  { written = "sdf@gmail.abc/123-sm", reading = "sdf at gmail dot ABC slash one two three dash sm" },
+  { written = "sdf@gmail.abc/123456-sm", reading = "sdf at gmail dot ABC slash one two three four five six dash sm" },
+]
+
+[[choice]]
+reason = "An invalid ordinal is read as the number followed by its letters."
+cases = [
+  { written = "111st", reading = "one hundred eleven st" },
+]
+
+[[choice]]
+reason = "Roman numerals after a name, such as \"Rocky IV\", are ambiguous, so they're read only after words such as \"Chapter\"."
+cases = [
+  { written = "Sam II", reading = "Sam II" },
+]
+
+[[gap]]
+reason = "murmur has no rule for serial codes that mix letters, digits, dashes and slashes."
+cases = ["1-413-te-b-1-5", "b-c-1-5-b-s-b", "1/f-4s", "1/f", "123/261788/2021"]
+
+[[gap]]
+reason = "murmur misreads \"25/235212\" in this serial code as a fraction."
+cases = ["MIG-25/235212-asdg"]
+
+[[gap]]
+reason = "murmur reads a dash between numbers as \"to\" only without spaces around it."
+cases = ["170 - 45190"]
+
+[[gap]]
+reason = "Reading words that run together would need a word splitter."
+cases = ["rtxprohelp@exchange.nvidia.com", "enterpriseservices@nvidia.com"]
+
+[[gap]]
+reason = "Reading it correctly needs the meaning of \"card ending in\"."
+cases = ["i can use your card ending in 8876"]
+
+[[gap]]
+reason = "murmur doesn't read phone numbers that are spelled with letters."
+cases = ["1-800-GO-U-HAUL", "1-800-GO-2-HAUL"]
+
+[[gap]]
+reason = "The input is garbled."
+cases = ["45º&C"]
