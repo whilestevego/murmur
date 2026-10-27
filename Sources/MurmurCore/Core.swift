@@ -10,12 +10,24 @@ public enum Request: Codable, Equatable, Sendable {
   case stop
 }
 
-/// Text to speak, with the voice and speed to speak it in.
+/// A text-to-speech model that murmurd can speak with.
+///
+/// The raw value is the name that `--engine` takes.
+public enum Engine: String, CaseIterable, Codable, Sendable {
+  /// Kokoro, which runs on the Neural Engine.
+  ///
+  /// It's the fastest engine and uses the least memory, so it's the default.
+  case kokoro
+}
+
+/// Text to speak, with the engine, voice and speed to speak it in.
 public struct Speech: Codable, Equatable, Sendable {
   /// The text to speak.
   ///
   /// It can hold several sentences, and text such as paths and numbers that is normalized before it's spoken.
   public var text: String
+  /// The engine to speak with, or `nil` for ``Engine/kokoro``.
+  public var engine: Engine?
   /// The name of the voice, which must be in ``voiceCatalog``.
   public var voice: String
   /// The speaking rate, where 1 is normal speed and larger values are faster.
@@ -36,15 +48,17 @@ public struct Speech: Codable, Equatable, Sendable {
   ///
   /// - Parameters:
   ///   - text: The text to speak.
+  ///   - engine: The engine to speak with, or `nil` for Kokoro.
   ///   - voice: The name of the voice, which must be in ``voiceCatalog``.
   ///   - speed: The speaking rate, where 1 is normal speed.
   ///   - interrupt: Whether to stop current and queued speech first.
   ///   - pronunciations: The absolute path of a file of custom pronunciations, or `nil` for the default file.
   public init(
-    text: String = "", voice: String = Defaults.voice, speed: Float = 1, interrupt: Bool = false,
+    text: String = "", engine: Engine? = nil, voice: String = Defaults.voice, speed: Float = 1, interrupt: Bool = false,
     pronunciations: String? = nil
   ) {
     self.text = text
+    self.engine = engine
     self.voice = voice
     self.speed = speed
     self.interrupt = interrupt
@@ -53,12 +67,12 @@ public struct Speech: Codable, Equatable, Sendable {
 
   /// Creates a speech request from command-line arguments.
   ///
-  /// The options are `-v` or `--voice`, `-s` or `--speed`, `-i` or `--interrupt`, and `--pronunciations`. A relative
+  /// The options are `-e` or `--engine`, `-v` or `--voice`, `-s` or `--speed`, `-i` or `--interrupt`, and `--pronunciations`. A relative
   /// pronunciations path is resolved against the current directory. The remaining arguments are joined with spaces to
   /// form the text. If there are none, ``text`` is empty.
   ///
   /// - Parameter arguments: The arguments, without the program name.
-  /// - Throws: ``UsageError`` if an option is missing its value, names an unknown voice, gives a speed that isn't a
+  /// - Throws: ``UsageError`` if an option is missing its value, names an unknown engine or voice, gives a speed that isn't a
   ///   finite number greater than 0, or names a pronunciations file that doesn't exist.
   public init(arguments: [String]) throws(UsageError) {
     self.init()
@@ -67,6 +81,14 @@ public struct Speech: Codable, Equatable, Sendable {
     while !args.isEmpty {
       let arg = args.removeFirst()
       switch arg {
+      case "-e", "--engine":
+        guard !args.isEmpty else { throw UsageError("--engine needs a name") }
+        let name = args.removeFirst()
+        guard let e = Engine(rawValue: name) else {
+          throw UsageError(
+            "unknown engine \(name) (choose from: \(Engine.allCases.map(\.rawValue).joined(separator: ", ")))")
+        }
+        engine = e
       case "-v", "--voice":
         guard !args.isEmpty else { throw UsageError("--voice needs a name") }
         voice = args.removeFirst()
@@ -202,16 +224,17 @@ public func soundsKey(_ sounds: [String: String]) -> String {
 
 /// Returns the cache key for a rendered sentence.
 ///
-/// The key is the 64-bit FNV-1a hash of the voice, speed and text. Unlike `hashValue`, it's the same in every process.
+/// The key is the 64-bit FNV-1a hash of the engine, voice, speed and text. Unlike `hashValue`, it's the same in every process.
 ///
 /// - Parameters:
 ///   - text: The sentence.
+///   - engine: The engine that renders it.
 ///   - voice: The name of the voice.
 ///   - speed: The speaking rate.
 /// - Returns: The hash, in hexadecimal.
-public func cacheKey(_ text: String, voice: String, speed: Float) -> String {
+public func cacheKey(_ text: String, engine: Engine, voice: String, speed: Float) -> String {
   var hash: UInt64 = 0xcbf2_9ce4_8422_2325
-  for byte in "\(voice)|\(speed)|\(text)".utf8 {
+  for byte in "\(engine.rawValue)|\(voice)|\(speed)|\(text)".utf8 {
     hash ^= UInt64(byte)
     hash = hash &* 0x100_0000_01b3
   }

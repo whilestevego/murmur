@@ -42,6 +42,7 @@ func usage(_ st: Style) -> String {
     row(st.accent("murmur setup") + " " + st.arg("[--from DIR]"), "install the voice model"),
     "",
     st.head("OPTIONS"),
+    row(st.accent("-e, --engine") + " " + st.arg("NAME"), "model to speak with " + st.dim("(default kokoro)")),
     row(st.accent("-v, --voice") + " " + st.arg("NAME"), "voice to speak with " + st.dim("(default af_heart)")),
     row(st.accent("-s, --speed") + " " + st.arg("X"), "speaking rate " + st.dim("(default 1.0)")),
     row(st.accent("-i, --interrupt"), "cut off what's playing instead of queueing"),
