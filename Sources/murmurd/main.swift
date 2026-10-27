@@ -57,6 +57,57 @@ actor Kokoro: Synthesizer {
   }
 }
 
+/// Chatterbox Nano, which runs on the GPU.
+@available(macOS 15, *)
+actor ChatterboxNano: Synthesizer {
+  private let manager = ChatterboxNanoManager()
+
+  /// Creates and loads the model.
+  ///
+  /// The first load downloads the model, which is about 711 MB, into FluidAudio's cache.
+  init() async throws {
+    log("loading Chatterbox Nano")
+    try await manager.initialize()
+  }
+
+  /// Renders a sentence with the one voice and speed that Chatterbox Nano has.
+  ///
+  /// Chatterbox Nano doesn't read phonemes, so `sounds` is ignored, along with `voice` and `speed`. A sentence that's too
+  /// long to render at once is split in two, as many times as it needs. The seed is fixed, so a sentence sounds the same
+  /// each time it's rendered.
+  func render(_ sentence: String, sounds: [String: String], voice: String, speed: Float) async throws -> [Float] {
+    do {
+      let audio = try await manager.synthesize(text: sentence, seed: 0)
+      guard audio.sampleRate == Int(Defaults.sampleRate) else {
+        throw ChatterboxError.processingFailed("expected \(Defaults.sampleRate) Hz, got \(audio.sampleRate) Hz")
+      }
+      return audio.samples
+    } catch let error as ChatterboxError {
+      switch error {
+      case .textTooLong, .generationTooLong: break
+      default: throw error
+      }
+      guard let (first, second) = halves(sentence) else { throw error }
+      let a = try await render(first, sounds: sounds, voice: voice, speed: speed)
+      return try await a + render(second, sounds: sounds, voice: voice, speed: speed)
+    }
+  }
+}
+
+/// Creates and loads an engine's model.
+///
+/// - Parameter engine: The engine to load.
+/// - Returns: The loaded model.
+/// - Throws: An error if the model fails to download or load, or ``UsageError`` if the engine needs a newer macOS.
+func load(_ engine: Engine) async throws -> any Synthesizer {
+  switch engine {
+  case .kokoro: return try await Kokoro()
+  case .chatterboxNano:
+    guard #available(macOS 15, *) else { throw UsageError("chatterbox-nano needs macOS 15 or later") }
+    return try await ChatterboxNano()
+  }
+}
+
 /// Renders and plays speech requests, in the order they arrive.
 actor Speaker {
   /// The model loads by engine, each shared by every caller.
@@ -134,10 +185,7 @@ actor Speaker {
     let task =
       loading[name]
       ?? Task {
-        let s: any Synthesizer =
-          switch name {
-          case .kokoro: try await Kokoro()
-          }
+        let s = try await load(name)
         log("\(name.rawValue) ready")
         return s
       }
@@ -157,7 +205,7 @@ actor Speaker {
   private func speak(_ request: Speech, _ gen: Int) async {
     var request = request
     let engine = request.engine ?? .kokoro
-    if !VoicePacks.isInstalled(request.voice) {
+    if engine == .kokoro && !VoicePacks.isInstalled(request.voice) {
       // Install a missing voice before the first sentence. The download is about 510 KB.
       log("installing voice \(request.voice)")
       do { try await VoicePacks.install(request.voice) } catch {
@@ -165,8 +213,12 @@ actor Speaker {
         request.voice = Defaults.voice
       }
     }
-    for (sentence, sounds) in prepare(request.text, Pronunciations.load(from: request.pronunciationsFile), lexicon) {
+    // Kokoro would read Chatterbox Nano's tags aloud.
+    let text = engine == .kokoro ? withoutTags(request.text) : request.text
+    for (prepared, phonemes) in prepare(text, Pronunciations.load(from: request.pronunciationsFile), lexicon) {
       guard gen == generation else { return }
+      let (sentence, sounds) =
+        engine == .kokoro ? (prepared, phonemes) : (nanoSentence(prepared, style: request.style), [:])
       let key = cacheKey(sentence + soundsKey(sounds), engine: engine, voice: request.voice, speed: request.speed)
       var samples = cache.get(key)
       if samples == nil {
@@ -276,6 +328,10 @@ if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
     FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
     exit(1)
   }
+  guard (request.engine ?? .kokoro) == .kokoro else {
+    FileHandle.standardError.write(Data("murmurd: chatterbox-nano reads text, not phonemes\n".utf8))
+    exit(1)
+  }
   do {
     let m = try await makeKokoro()
     for (sentence, sounds) in prepare(
@@ -287,6 +343,20 @@ if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
   } catch {
     FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
   }
+  exit(0)
+}
+
+// `murmurd --setup ENGINE` downloads and loads an engine's model, then exits.
+if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--setup" {
+  guard let engine = Engine(name: CommandLine.arguments[2]) else {
+    FileHandle.standardError.write(Data("murmurd: unknown engine \(CommandLine.arguments[2])\n".utf8))
+    exit(1)
+  }
+  do { _ = try await load(engine) } catch {
+    FileHandle.standardError.write(Data("murmurd: \(error)\n".utf8))
+    exit(1)
+  }
+  print("✓ Installed \(engine.rawValue)")
   exit(0)
 }
 

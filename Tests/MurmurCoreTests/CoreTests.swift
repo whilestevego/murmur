@@ -317,7 +317,25 @@ final class ArgumentTests: XCTestCase {
     XCTAssertEqual(try speech("-e", "kokoro", "Hi"), Speech(text: "Hi", engine: .kokoro))
     XCTAssertEqual(try speech("--engine", "kokoro").engine, .kokoro)
     XCTAssertEqual(usageError("--engine"), "--engine needs a name")
-    XCTAssertEqual(usageError("-e", "nope"), "unknown engine nope (choose from: kokoro)")
+    XCTAssertEqual(usageError("-e", "nope"), "unknown engine nope (choose from: kokoro, chatterbox-nano)")
+    XCTAssertEqual(try speech("-e", "chatterbox-nano", "Hi").engine, .chatterboxNano)
+    XCTAssertEqual(try speech("-e", "cb-nano", "Hi").engine, .chatterboxNano)
+  }
+
+  func testStyleOption() throws {
+    XCTAssertEqual(try speech("--style", "happy", "-e", "chatterbox-nano").style, "happy")
+    XCTAssertEqual(usageError("--style"), "--style needs a name")
+    XCTAssertEqual(usageError("--style", "laugh", "-e", "chatterbox-nano")?.hasPrefix("unknown style laugh"), true)
+    XCTAssertEqual(usageError("--style", "happy", "Hi"), "--style needs --engine chatterbox-nano")
+  }
+
+  func testChatterboxNanoTakesNoVoiceOrSpeed() {
+    XCTAssertEqual(
+      usageError("-e", "chatterbox-nano", "-v", "af_heart"), "chatterbox-nano has one voice, so it doesn't take --voice"
+    )
+    XCTAssertEqual(usageError("--speed", "1.2", "-e", "chatterbox-nano"), "chatterbox-nano doesn't support --speed")
+    // An option after "--" is text.
+    XCTAssertNil(usageError("-e", "chatterbox-nano", "--", "-s", "is", "short"))
   }
 
   func testEverythingAfterDoubleDashIsText() throws {
@@ -357,5 +375,40 @@ final class NormalizeSafetyTests: XCTestCase {
     for text in ["٣:30", "١:00:00", "１:05", "the ٣0s", "٣Q22", "₩٣"] {
       XCTAssertFalse(normalize(text).isEmpty, text)
     }
+  }
+}
+
+final class TagTests: XCTestCase {
+  func testTagsAreRemovedForKokoro() {
+    XCTAssertEqual(withoutTags("[happy] It shipped! [laugh] Finally [clear throat]."), " It shipped! Finally.")
+    XCTAssertEqual(withoutTags("See [1] and array[0]."), "See [1] and array[0].")
+  }
+
+  func testTagsSurviveNormalization() {
+    let said = prepare("[happy] It shipped! [clear throat] Done.", [:], Lexicon()).map(\.text)
+    XCTAssertEqual(said, ["[happy] It shipped!", "[clear throat] Done."])
+  }
+
+  func testStyleAppliesToSentencesWithoutTheirOwn() {
+    XCTAssertEqual(nanoSentence("Hi.", style: "happy"), "[happy] Hi.")
+    XCTAssertEqual(nanoSentence("[angry] Hi.", style: "happy"), "[angry] Hi.")
+    // A sound tag isn't a style, so the style still applies.
+    XCTAssertEqual(nanoSentence("[laugh] Hi.", style: "happy"), "[happy] [laugh] Hi.")
+    XCTAssertEqual(nanoSentence("Hi.", style: nil), "Hi.")
+  }
+
+  func testDecimalsAreWrittenOutForNano() {
+    XCTAssertEqual(nanoSentence("Pi is 3.14.", style: nil), "Pi is 3 point 1 4.")
+    XCTAssertEqual(nanoSentence("Use 1.2.3 or v2.0 at 10.", style: nil), "Use 1.2.3 or v2.0 at 10.")
+  }
+
+  func testHalvesSplitAtTheMiddleCommaAndKeepTheStyle() throws {
+    let (a, b) = try XCTUnwrap(halves("[happy] One, two three, four five six seven."))
+    XCTAssertEqual(a, "[happy] One, two three,")
+    XCTAssertEqual(b, "[happy] four five six seven.")
+    let (c, d) = try XCTUnwrap(halves("Say [clear throat] it."))
+    XCTAssertEqual(c, "Say [clear throat]")
+    XCTAssertEqual(d, "it.")
+    XCTAssertNil(halves("[happy] Word."))
   }
 }

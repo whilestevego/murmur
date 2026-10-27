@@ -18,6 +18,27 @@ public enum Engine: String, CaseIterable, Codable, Sendable {
   ///
   /// It's the fastest engine and uses the least memory, so it's the default.
   case kokoro
+  /// Chatterbox Nano, which runs on the GPU.
+  ///
+  /// It sounds more natural than Kokoro and reads tags such as `[happy]` and `[laugh]`. It has one voice and one speed,
+  /// and it needs macOS 15 or later.
+  case chatterboxNano = "chatterbox-nano"
+
+  /// The short name that `--engine` also accepts, or `nil` if the engine has none.
+  public var alias: String? {
+    switch self {
+    case .kokoro: nil
+    case .chatterboxNano: "cb-nano"
+    }
+  }
+
+  /// Creates an engine from its full name or its alias, or returns `nil` if no engine has that name.
+  ///
+  /// - Parameter name: A raw value, such as `chatterbox-nano`, or an alias, such as `cb-nano`.
+  public init?(name: String) {
+    guard let engine = Engine.allCases.first(where: { $0.rawValue == name || $0.alias == name }) else { return nil }
+    self = engine
+  }
 }
 
 /// Text to speak, with the engine, voice and speed to speak it in.
@@ -34,6 +55,10 @@ public struct Speech: Codable, Equatable, Sendable {
   ///
   /// It must be finite and greater than 0.
   public var speed: Float
+  /// One of the ``styleTags``, for every sentence that doesn't have a style tag of its own, or `nil` for none.
+  ///
+  /// Only ``Engine/chatterboxNano`` reads styles.
+  public var style: String?
   /// A Boolean value that indicates whether to stop current and queued speech before speaking.
   public var interrupt: Bool
   /// The absolute path of the file of custom pronunciations to use, or `nil` to use ``Pronunciations/file``.
@@ -51,40 +76,47 @@ public struct Speech: Codable, Equatable, Sendable {
   ///   - engine: The engine to speak with, or `nil` for Kokoro.
   ///   - voice: The name of the voice, which must be in ``voiceCatalog``.
   ///   - speed: The speaking rate, where 1 is normal speed.
+  ///   - style: One of the ``styleTags`` for every sentence, or `nil` for none.
   ///   - interrupt: Whether to stop current and queued speech first.
   ///   - pronunciations: The absolute path of a file of custom pronunciations, or `nil` for the default file.
   public init(
-    text: String = "", engine: Engine? = nil, voice: String = Defaults.voice, speed: Float = 1, interrupt: Bool = false,
+    text: String = "", engine: Engine? = nil, voice: String = Defaults.voice, speed: Float = 1, style: String? = nil,
+    interrupt: Bool = false,
     pronunciations: String? = nil
   ) {
     self.text = text
     self.engine = engine
     self.voice = voice
     self.speed = speed
+    self.style = style
     self.interrupt = interrupt
     self.pronunciations = pronunciations
   }
 
   /// Creates a speech request from command-line arguments.
   ///
-  /// The options are `-e` or `--engine`, `-v` or `--voice`, `-s` or `--speed`, `-i` or `--interrupt`, and `--pronunciations`. A relative
-  /// pronunciations path is resolved against the current directory. The remaining arguments are joined with spaces to
-  /// form the text. If there are none, ``text`` is empty.
+  /// The options are `-e` or `--engine`, `-v` or `--voice`, `-s` or `--speed`, `--style`, `-i` or `--interrupt`, and
+  /// `--pronunciations`. A relative pronunciations path is resolved against the current directory. The remaining
+  /// arguments are joined with spaces to form the text. If there are none, ``text`` is empty.
   ///
   /// - Parameter arguments: The arguments, without the program name.
-  /// - Throws: ``UsageError`` if an option is missing its value, names an unknown engine or voice, gives a speed that isn't a
-  ///   finite number greater than 0, or names a pronunciations file that doesn't exist.
+  /// - Throws: ``UsageError`` if an option is missing its value, names an unknown engine, voice or style, gives a speed
+  ///   that isn't a finite number greater than 0, or names a pronunciations file that doesn't exist. It also fails if
+  ///   the options don't fit the engine. ``Engine/chatterboxNano`` takes no voice or speed and needs macOS 15 or later,
+  ///   and only it takes a style.
   public init(arguments: [String]) throws(UsageError) {
     self.init()
     var args = arguments
     var words: [String] = []
+    var options: Set<String> = []
     while !args.isEmpty {
       let arg = args.removeFirst()
+      options.insert(arg)
       switch arg {
       case "-e", "--engine":
         guard !args.isEmpty else { throw UsageError("--engine needs a name") }
         let name = args.removeFirst()
-        guard let e = Engine(rawValue: name) else {
+        guard let e = Engine(name: name) else {
           throw UsageError(
             "unknown engine \(name) (choose from: \(Engine.allCases.map(\.rawValue).joined(separator: ", ")))")
         }
@@ -100,6 +132,13 @@ public struct Speech: Codable, Equatable, Sendable {
           throw UsageError("--speed needs a number")
         }
         speed = s
+      case "--style":
+        guard !args.isEmpty else { throw UsageError("--style needs a name") }
+        let name = args.removeFirst()
+        guard styleTags.contains(name) else {
+          throw UsageError("unknown style \(name) (choose from: \(styleTags.joined(separator: ", ")))")
+        }
+        style = name
       case "-i", "--interrupt": interrupt = true
       case "--pronunciations":
         guard !args.isEmpty else { throw UsageError("--pronunciations needs a file") }
@@ -116,6 +155,14 @@ public struct Speech: Codable, Equatable, Sendable {
       }
     }
     text = words.joined(separator: " ")
+    let given = { (names: String...) in !options.isDisjoint(with: names) }
+    if engine == .chatterboxNano {
+      if given("-v", "--voice") { throw UsageError("chatterbox-nano has one voice, so it doesn't take --voice") }
+      if given("-s", "--speed") { throw UsageError("chatterbox-nano doesn't support --speed") }
+      if #unavailable(macOS 15) { throw UsageError("chatterbox-nano needs macOS 15 or later") }
+    } else if style != nil {
+      throw UsageError("--style needs --engine chatterbox-nano")
+    }
   }
 }
 
@@ -135,7 +182,7 @@ public enum Defaults {
   ///
   /// It's the voice Kokoro grades highest, and the only one FluidAudio publishes for the Neural Engine.
   public static let voice = "af_heart"
-  /// The sample rate of Kokoro's mono output, in hertz.
+  /// The sample rate of every engine's mono output, in hertz.
   public static let sampleRate = 24_000.0
   /// The time, in seconds, that murmurd waits with nothing to speak before it exits.
   public static let idleExit: TimeInterval = 10 * 60
