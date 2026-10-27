@@ -319,6 +319,7 @@ final class ArgumentTests: XCTestCase {
     XCTAssertEqual(usageError("--engine"), "--engine needs a name")
     XCTAssertEqual(usageError("-e", "nope"), "unknown engine nope (choose from: kokoro, chatterbox-nano)")
     XCTAssertEqual(try speech("-e", "chatterbox-nano", "Hi").engine, .chatterboxNano)
+    XCTAssertEqual(try speech("-e", "cb-nano", "Hi").engine, .chatterboxNano)
   }
 
   func testStyleOption() throws {

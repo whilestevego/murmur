@@ -23,6 +23,22 @@ public enum Engine: String, CaseIterable, Codable, Sendable {
   /// It sounds more natural than Kokoro and reads tags such as `[happy]` and `[laugh]`. It has one voice and one speed,
   /// and it needs macOS 15 or later.
   case chatterboxNano = "chatterbox-nano"
+
+  /// The short name that `--engine` also accepts, or `nil` if the engine has none.
+  public var alias: String? {
+    switch self {
+    case .kokoro: nil
+    case .chatterboxNano: "cb-nano"
+    }
+  }
+
+  /// Creates an engine from its full name or its alias, or returns `nil` if no engine has that name.
+  ///
+  /// - Parameter name: A raw value, such as `chatterbox-nano`, or an alias, such as `cb-nano`.
+  public init?(name: String) {
+    guard let engine = Engine.allCases.first(where: { $0.rawValue == name || $0.alias == name }) else { return nil }
+    self = engine
+  }
 }
 
 /// Text to speak, with the engine, voice and speed to speak it in.
@@ -100,7 +116,7 @@ public struct Speech: Codable, Equatable, Sendable {
       case "-e", "--engine":
         guard !args.isEmpty else { throw UsageError("--engine needs a name") }
         let name = args.removeFirst()
-        guard let e = Engine(rawValue: name) else {
+        guard let e = Engine(name: name) else {
           throw UsageError(
             "unknown engine \(name) (choose from: \(Engine.allCases.map(\.rawValue).joined(separator: ", ")))")
         }

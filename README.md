@@ -69,15 +69,15 @@ the D and F voices are noticeably rougher.
 
 ## Chatterbox Nano
 
-`--engine chatterbox-nano` speaks with Chatterbox Nano, from Resemble AI,
+`--engine chatterbox-nano`, or `-e cb-nano` for short, speaks with Chatterbox Nano, from Resemble AI,
 which sounds more natural than Kokoro and reads emotion and sound tags. It runs on the GPU,
 renders about 3× faster than real time on an M4 Pro (Kokoro is about 30×), and needs macOS 15+.
 Kokoro stays the default.
 
 ```sh
 murmur setup --engine chatterbox-nano     # download it now (~711 MB), or let it download on first use
-murmur -e chatterbox-nano "[happy] It shipped! [laugh] Finally."
-murmur -e chatterbox-nano --style whispering "Every sentence is whispered."
+murmur -e cb-nano "[happy] It shipped! [laugh] Finally."
+murmur -e cb-nano --style whispering "Every sentence is whispered."
 ```
 
 - A tag applies to the sentence it's in. `--style` applies to every sentence that has no

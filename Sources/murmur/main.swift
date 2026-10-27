@@ -45,7 +45,9 @@ func usage(_ st: Style) -> String {
       "download chatterbox-nano " + st.dim("(~711 MB; otherwise on first use)")),
     "",
     st.head("OPTIONS"),
-    row(st.accent("-e, --engine") + " " + st.arg("NAME"), "kokoro or chatterbox-nano " + st.dim("(default kokoro)")),
+    row(
+      st.accent("-e, --engine") + " " + st.arg("NAME"),
+      "kokoro " + st.dim("(default)") + " or chatterbox-nano " + st.dim("(short: cb-nano)")),
     row(st.accent("-v, --voice") + " " + st.arg("NAME"), "voice to speak with " + st.dim("(default af_heart)")),
     row(st.accent("-s, --speed") + " " + st.arg("X"), "speaking rate " + st.dim("(default 1.0)")),
     row(st.accent("--style") + " " + st.arg("NAME"), "chatterbox-nano style for sentences without their own tag"),
@@ -64,7 +66,7 @@ func usage(_ st: Style) -> String {
     "  " + st.dim("$") + " murmur \"The build is green.\"",
     "  " + st.dim("$") + " git log -1 --format=%s | murmur --voice bm_george",
     "  " + st.dim("$") + " murmur voices install af_nicole bm_lewis",
-    "  " + st.dim("$") + " murmur -e chatterbox-nano \"[happy] It shipped! [laugh] Finally.\"",
+    "  " + st.dim("$") + " murmur -e cb-nano \"[happy] It shipped! [laugh] Finally.\"",
     "",
     st.dim("Logs: \(Paths.log.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))"),
   ].joined(separator: "\n")
@@ -225,10 +227,10 @@ case "voices":
 case "setup":
   // Only murmurd links FluidAudio, which downloads Chatterbox Nano.
   if let e = args.firstIndex(where: { $0 == "-e" || $0 == "--engine" }) {
-    guard let name = args.indices.contains(e + 1) ? args[e + 1] : nil, Engine(rawValue: name) != nil else {
+    guard let engine = args.indices.contains(e + 1) ? Engine(name: args[e + 1]) : nil else {
       fail("--engine needs kokoro or chatterbox-nano")
     }
-    if name == Engine.chatterboxNano.rawValue { execDaemon(["--setup", name]) }
+    if engine == .chatterboxNano { execDaemon(["--setup", engine.rawValue]) }
   }
   let i = args.firstIndex(of: "--from")
   setup(from: i.flatMap { args.indices.contains($0 + 1) ? args[$0 + 1] : nil })

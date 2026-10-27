@@ -348,7 +348,7 @@ if CommandLine.arguments.count > 2 && CommandLine.arguments[1] == "--phonemes" {
 
 // `murmurd --setup ENGINE` downloads and loads an engine's model, then exits.
 if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--setup" {
-  guard let engine = Engine(rawValue: CommandLine.arguments[2]) else {
+  guard let engine = Engine(name: CommandLine.arguments[2]) else {
     FileHandle.standardError.write(Data("murmurd: unknown engine \(CommandLine.arguments[2])\n".utf8))
     exit(1)
   }
