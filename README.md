@@ -67,6 +67,30 @@ The grade beside each voice is Kokoro's own, from its
 and how plentiful the voice's training audio was. `af_heart` (A) and `af_bella` (A-) sound best;
 the D and F voices are noticeably rougher.
 
+## Chatterbox Nano
+
+`--engine chatterbox-nano` speaks with Chatterbox Nano, from Resemble AI,
+which sounds more natural than Kokoro and reads emotion and sound tags. It runs on the GPU,
+renders about 3× faster than real time on an M4 Pro (Kokoro is about 30×), and needs macOS 15+.
+Kokoro stays the default.
+
+```sh
+murmur setup --engine chatterbox-nano     # download it now (~711 MB), or let it download on first use
+murmur -e chatterbox-nano "[happy] It shipped! [laugh] Finally."
+murmur -e chatterbox-nano --style whispering "Every sentence is whispered."
+```
+
+- A tag applies to the sentence it's in. `--style` applies to every sentence that has no
+  style tag of its own.
+- Styles: `advertisement`, `angry`, `crying`, `dramatic`, `fear`, `happy`, `narration`,
+  `sarcastic`, `surprised`, `whispering`.
+- Sounds: `[chuckle]`, `[clear throat]`, `[cough]`, `[gasp]`, `[groan]`, `[laugh]`, `[shush]`,
+  `[sigh]`, `[sniff]`.
+- It has one voice and one speed, so it doesn't take `--voice` or `--speed`.
+- Respellings apply, but pronunciations given as phonemes don't, and `murmur phonemes` is for
+  Kokoro only.
+- Kokoro removes the tags instead of reading them aloud.
+
 ## Pronunciation
 
 Before Kokoro sees the text, murmur fixes what it would misread:

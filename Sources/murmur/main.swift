@@ -40,11 +40,15 @@ func usage(_ st: Style) -> String {
       "install voices " + st.dim("(or --all; a missing voice also installs on first use)")),
     row(st.accent("murmur phonemes") + " " + st.arg("<text…>"), "show how text will be pronounced"),
     row(st.accent("murmur setup") + " " + st.arg("[--from DIR]"), "install the voice model"),
+    row(
+      st.accent("murmur setup --engine") + " " + st.arg("NAME"),
+      "download chatterbox-nano " + st.dim("(~711 MB; otherwise on first use)")),
     "",
     st.head("OPTIONS"),
-    row(st.accent("-e, --engine") + " " + st.arg("NAME"), "model to speak with " + st.dim("(default kokoro)")),
+    row(st.accent("-e, --engine") + " " + st.arg("NAME"), "kokoro or chatterbox-nano " + st.dim("(default kokoro)")),
     row(st.accent("-v, --voice") + " " + st.arg("NAME"), "voice to speak with " + st.dim("(default af_heart)")),
     row(st.accent("-s, --speed") + " " + st.arg("X"), "speaking rate " + st.dim("(default 1.0)")),
+    row(st.accent("--style") + " " + st.arg("NAME"), "chatterbox-nano style for sentences without their own tag"),
     row(st.accent("-i, --interrupt"), "cut off what's playing instead of queueing"),
     row(
       st.accent("--pronunciations") + " " + st.arg("FILE"),
@@ -52,10 +56,15 @@ func usage(_ st: Style) -> String {
     row(st.accent("--"), "end of options: the rest is text, even if it starts with -"),
     row(st.accent("-h, --help"), "show this help"),
     "",
+    st.head("TAGS") + " " + st.dim("(chatterbox-nano, for the sentence they're in)"),
+    "  " + styleTags.map { "[\($0)]" }.joined(separator: " "),
+    "  " + soundTags.map { "[\($0)]" }.joined(separator: " "),
+    "",
     st.head("EXAMPLES"),
     "  " + st.dim("$") + " murmur \"The build is green.\"",
     "  " + st.dim("$") + " git log -1 --format=%s | murmur --voice bm_george",
     "  " + st.dim("$") + " murmur voices install af_nicole bm_lewis",
+    "  " + st.dim("$") + " murmur -e chatterbox-nano \"[happy] It shipped! [laugh] Finally.\"",
     "",
     st.dim("Logs: \(Paths.log.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))"),
   ].joined(separator: "\n")
@@ -97,6 +106,13 @@ func spawnDaemon() {
   let argv: [UnsafeMutablePointer<CChar>?] = [strdup(path), nil]
   let status = posix_spawn(&pid, path, &actions, &attrs, argv, environ)
   if status != 0 { fail("couldn't start \(path): \(String(cString: strerror(status)))") }
+}
+
+/// Runs murmurd in place of murmur, with arguments.
+func execDaemon(_ arguments: [String]) -> Never {
+  let argv: [UnsafeMutablePointer<CChar>?] = ([daemonPath()] + arguments).map { strdup($0) } + [nil]
+  execv(daemonPath(), argv)
+  fail("couldn't run \(daemonPath())")
 }
 
 /// Sends a request to murmurd, starting it first if it isn't running.
@@ -203,12 +219,17 @@ case "phonemes":
   // The phonemizer is part of the model, which only murmurd loads, so run murmurd to print the phonemes.
   let words = Array(args.dropFirst())
   guard !words.isEmpty else { fail("phonemes needs text") }
-  let argv: [UnsafeMutablePointer<CChar>?] = ([daemonPath(), "--phonemes"] + words).map { strdup($0) } + [nil]
-  execv(daemonPath(), argv)
-  fail("couldn't run \(daemonPath())")
+  execDaemon(["--phonemes"] + words)
 case "voices":
   if args.count > 1 && args[1] == "install" { await installVoices(Array(args.dropFirst(2))) } else { listVoices() }
 case "setup":
+  // Only murmurd links FluidAudio, which downloads Chatterbox Nano.
+  if let e = args.firstIndex(where: { $0 == "-e" || $0 == "--engine" }) {
+    guard let name = args.indices.contains(e + 1) ? args[e + 1] : nil, Engine(rawValue: name) != nil else {
+      fail("--engine needs kokoro or chatterbox-nano")
+    }
+    if name == Engine.chatterboxNano.rawValue { execDaemon(["--setup", name]) }
+  }
   let i = args.firstIndex(of: "--from")
   setup(from: i.flatMap { args.indices.contains($0 + 1) ? args[$0 + 1] : nil })
 default:
