@@ -20,10 +20,47 @@ func makeKokoro() async throws -> KokoroAneManager {
   return m
 }
 
+/// A model that renders sentences to audio.
+protocol Synthesizer: Sendable {
+  /// Renders a sentence.
+  ///
+  /// - Parameters:
+  ///   - sentence: The normalized sentence.
+  ///   - sounds: The custom pronunciations, as phonemes by word.
+  ///   - voice: The name of the voice.
+  ///   - speed: The speaking rate, where 1 is normal speed.
+  /// - Returns: The mono samples, at `Defaults.sampleRate`.
+  /// - Throws: An error if the model fails to render the sentence.
+  func render(_ sentence: String, sounds: [String: String], voice: String, speed: Float) async throws -> [Float]
+}
+
+/// Kokoro, which runs on the Neural Engine.
+actor Kokoro: Synthesizer {
+  private let manager: KokoroAneManager
+  /// The custom pronunciations last given to Kokoro.
+  ///
+  /// Setting them rebuilds Kokoro's text front end, so they're set only when they change.
+  private var sounds: [String: String] = [:]
+
+  /// Creates and loads the model.
+  init() async throws {
+    log("loading Kokoro (\(Paths.bundleInstalled ? Paths.models.path : "download from HuggingFace"))")
+    manager = try await makeKokoro()
+  }
+
+  func render(_ sentence: String, sounds: [String: String], voice: String, speed: Float) async throws -> [Float] {
+    if sounds != self.sounds {
+      await manager.setEnglishCustomLexicon(sounds)
+      self.sounds = sounds
+    }
+    return try await manager.synthesizeDetailed(text: sentence, voice: voice, speed: speed).samples
+  }
+}
+
 /// Renders and plays speech requests, in the order they arrive.
 actor Speaker {
-  /// The model load, shared by every caller.
-  private var loading: Task<KokoroAneManager, Error>?
+  /// The model loads by engine, each shared by every caller.
+  private var loading: [Engine: Task<any Synthesizer, Error>] = [:]
   private let engine = AVAudioEngine()
   private let player = AVAudioPlayerNode()
   private let cache = PhraseCache()
@@ -50,10 +87,6 @@ actor Speaker {
   private var lastActive = Date()
   /// The pronunciation dictionary, loaded on first use.
   private lazy var lexicon = Lexicon.load()
-  /// The custom pronunciations last given to Kokoro.
-  ///
-  /// Setting them rebuilds Kokoro's text front end, so they're set only when they change.
-  private var sounds: [String: String] = [:]
 
   init() {
     engine.attach(player)
@@ -93,25 +126,27 @@ actor Speaker {
   /// `Defaults.idleExit` seconds.
   var isIdle: Bool { pending == 0 && speaking == 0 && Date().timeIntervalSince(lastActive) > Defaults.idleExit }
 
-  /// Returns the loaded model, and loads it on first use.
+  /// Returns an engine's loaded model, and loads it on first use.
   ///
   /// Callers that arrive during the load wait for that load instead of starting another. If the load fails, the next
-  /// call tries again.
-  private func loadedManager() async throws -> KokoroAneManager {
+  /// call tries again. A loaded model stays loaded until murmurd exits.
+  private func synthesizer(_ name: Engine) async throws -> any Synthesizer {
     let task =
-      loading
+      loading[name]
       ?? Task {
-        log("loading Kokoro (\(Paths.bundleInstalled ? Paths.models.path : "download from HuggingFace"))")
-        let m = try await makeKokoro()
-        log("Kokoro ready")
-        return m
+        let s: any Synthesizer =
+          switch name {
+          case .kokoro: try await Kokoro()
+          }
+        log("\(name.rawValue) ready")
+        return s
       }
-    loading = task
+    loading[name] = task
     do {
       return try await task.value
     } catch {
       // Let the next call retry, unless another call has already started a new load.
-      if loading == task { loading = nil }
+      if loading[name] == task { loading[name] = nil }
       throw error
     }
   }
@@ -121,6 +156,7 @@ actor Speaker {
   /// Each sentence plays while the next one renders. Speaking stops when a stop or interrupt starts a new generation.
   private func speak(_ request: Speech, _ gen: Int) async {
     var request = request
+    let engine = request.engine ?? .kokoro
     if !VoicePacks.isInstalled(request.voice) {
       // Install a missing voice before the first sentence. The download is about 510 KB.
       log("installing voice \(request.voice)")
@@ -131,11 +167,11 @@ actor Speaker {
     }
     for (sentence, sounds) in prepare(request.text, Pronunciations.load(from: request.pronunciationsFile), lexicon) {
       guard gen == generation else { return }
-      let key = cacheKey(sentence + soundsKey(sounds), voice: request.voice, speed: request.speed)
+      let key = cacheKey(sentence + soundsKey(sounds), engine: engine, voice: request.voice, speed: request.speed)
       var samples = cache.get(key)
       if samples == nil {
         do {
-          let out = try await render(sentence, sounds, voice: request.voice, speed: request.speed)
+          let out = try await render(sentence, sounds, engine: engine, voice: request.voice, speed: request.speed)
           samples = out
           cache.put(key, out)
         } catch {
@@ -155,19 +191,14 @@ actor Speaker {
   ///
   /// Rendering one sentence at a time keeps each sentence's custom pronunciations set while it renders, even when an
   /// interrupting request is rendering too.
-  private func render(_ sentence: String, _ sounds: [String: String], voice: String, speed: Float) async throws
-    -> [Float]
-  {
+  private func render(
+    _ sentence: String, _ sounds: [String: String], engine: Engine, voice: String, speed: Float
+  ) async throws -> [Float] {
     let previous = rendering
     let task = Task {
       // Wait for the previous render, whether or not it succeeded.
       _ = try? await previous?.value
-      let manager = try await self.loadedManager()
-      if sounds != self.sounds {
-        await manager.setEnglishCustomLexicon(sounds)
-        self.sounds = sounds
-      }
-      return try await manager.synthesizeDetailed(text: sentence, voice: voice, speed: speed).samples
+      return try await self.synthesizer(engine).render(sentence, sounds: sounds, voice: voice, speed: speed)
     }
     rendering = task
     return try await task.value

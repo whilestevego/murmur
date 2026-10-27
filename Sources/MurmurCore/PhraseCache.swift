@@ -26,7 +26,7 @@ public struct PhraseCache: Sendable {
   ///
   /// Reading an entry marks it as recently used, so it's evicted last.
   ///
-  /// - Parameter key: The sentence's cache key, from ``cacheKey(_:voice:speed:)``.
+  /// - Parameter key: The sentence's cache key, from ``cacheKey(_:engine:voice:speed:)``.
   /// - Returns: The samples, or `nil` if the sentence isn't cached.
   public func get(_ key: String) -> [Float]? {
     guard let data = try? Data(contentsOf: url(key)), !data.isEmpty else { return nil }
@@ -41,7 +41,7 @@ public struct PhraseCache: Sendable {
   /// If the cache is then larger than ``limit``, the least recently used files are removed until it fits.
   ///
   /// - Parameters:
-  ///   - key: The sentence's cache key, from ``cacheKey(_:voice:speed:)``.
+  ///   - key: The sentence's cache key, from ``cacheKey(_:engine:voice:speed:)``.
   ///   - samples: The rendered samples.
   public func put(_ key: String, _ samples: [Float]) {
     let fm = FileManager.default

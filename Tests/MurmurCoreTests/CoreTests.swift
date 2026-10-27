@@ -19,10 +19,10 @@ final class CoreTests: XCTestCase {
   }
 
   func testCacheKeyIsStableAndDistinct() {
-    let a = cacheKey("Hi.", voice: "af_heart", speed: 1)
-    XCTAssertEqual(a, cacheKey("Hi.", voice: "af_heart", speed: 1))
-    XCTAssertNotEqual(a, cacheKey("Hi.", voice: "bf_emma", speed: 1))
-    XCTAssertNotEqual(a, cacheKey("Hi.", voice: "af_heart", speed: 1.2))
+    let a = cacheKey("Hi.", engine: .kokoro, voice: "af_heart", speed: 1)
+    XCTAssertEqual(a, cacheKey("Hi.", engine: .kokoro, voice: "af_heart", speed: 1))
+    XCTAssertNotEqual(a, cacheKey("Hi.", engine: .kokoro, voice: "bf_emma", speed: 1))
+    XCTAssertNotEqual(a, cacheKey("Hi.", engine: .kokoro, voice: "af_heart", speed: 1.2))
   }
 
   func testSoundsKeyIsSortedAndChangesWithTheSounds() {
@@ -32,7 +32,8 @@ final class CoreTests: XCTestCase {
   }
 
   func testRequestRoundTrips() throws {
-    let speech = Speech(text: "Hello", voice: "bm_george", speed: 1.1, interrupt: true, pronunciations: "/tmp/p")
+    let speech = Speech(
+      text: "Hello", engine: .kokoro, voice: "bm_george", speed: 1.1, interrupt: true, pronunciations: "/tmp/p")
     for r in [Request.speak(speech), .speak(Speech(text: "Hi")), .stop] {
       XCTAssertEqual(try JSONDecoder().decode(Request.self, from: JSONEncoder().encode(r)), r)
     }
@@ -310,6 +311,13 @@ final class ArgumentTests: XCTestCase {
       try speech("--voice", "bf_emma", "-s", "0.8", "--interrupt"),
       Speech(voice: "bf_emma", speed: 0.8, interrupt: true))
     XCTAssertEqual(try speech(), Speech())
+  }
+
+  func testEngineOption() throws {
+    XCTAssertEqual(try speech("-e", "kokoro", "Hi"), Speech(text: "Hi", engine: .kokoro))
+    XCTAssertEqual(try speech("--engine", "kokoro").engine, .kokoro)
+    XCTAssertEqual(usageError("--engine"), "--engine needs a name")
+    XCTAssertEqual(usageError("-e", "nope"), "unknown engine nope (choose from: kokoro)")
   }
 
   func testEverythingAfterDoubleDashIsText() throws {
