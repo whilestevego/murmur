@@ -18,7 +18,7 @@ public enum Pronunciations {
     "monorepos": "mono reepos", "Monorepos": "Mono reepos",
     "README": "read me", "npm": "N P M", "ssn": "S S N", "tv": "T V",
     // Phonemes between slashes are used as they are, and also as the stem of words such as "rebased".
-    "rebase": "/ɹˈibˌAs/",
+    "rebase": "/ɹˈibˌAs/", "debounce": "/dibˈWns/", "plugin": "/plˈʌɡˌɪn/",
     "macOS": "mac O S", "GraphQL": "graph Q L", "OAuth": "oh auth",
     "kubectl": "cube control", "nginx": "engine X",
     "stdout": "standard out", "stderr": "standard error", "stdin": "standard in",
