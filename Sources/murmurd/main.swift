@@ -14,8 +14,12 @@ func log(_ message: String) {
 ///
 /// The model comes from the installed bundle if there is one. Otherwise, FluidAudio downloads it from Hugging Face into
 /// its cache.
+///
+/// The noise and tail stages run on the CPU instead of the GPU. On the GPU, Kokoro sometimes renders a sentence as
+/// gibberish, and that render isn't repeatable. On the CPU, the stages are also faster.
 func makeKokoro() async throws -> KokoroAneManager {
-  let m = KokoroAneManager(defaultVoice: Defaults.voice, directory: Paths.bundleInstalled ? Paths.models : nil)
+  let m = KokoroAneManager(
+    defaultVoice: Defaults.voice, directory: Paths.bundleInstalled ? Paths.models : nil, computeUnits: .aneTailCpu)
   try await m.initialize()
   return m
 }
@@ -222,6 +226,8 @@ actor Speaker {
       let key = cacheKey(sentence + soundsKey(sounds), engine: engine, voice: request.voice, speed: request.speed)
       var samples = cache.get(key)
       if samples == nil {
+        // The key names the cached file, so a bad render can be traced to its text.
+        log("rendering \(key) (\(request.voice)): \(sentence)")
         do {
           let out = try await render(sentence, sounds, engine: engine, voice: request.voice, speed: request.speed)
           samples = out
