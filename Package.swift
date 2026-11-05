@@ -11,7 +11,7 @@ let package = Package(
   dependencies: [
     // FluidAudio's default trait adds NeMo text normalization, which would normalize the text a second time after
     // murmur's own rules. Turning it off also keeps its prebuilt Rust library out of murmurd.
-    .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.17.7", traits: [])
+    .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.18.2", traits: [])
   ],
   targets: [
     // The client doesn't link FluidAudio, so it starts in milliseconds. It only sends requests to murmurd.
