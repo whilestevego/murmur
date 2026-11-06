@@ -1,0 +1,2 @@
+# The settings that the tests read in place of the user's own file.
+check-renders = on

@@ -19,7 +19,7 @@ func log(_ message: String) {
 /// gibberish, and that render isn't repeatable. On the CPU, the stages are also faster.
 func makeKokoro() async throws -> KokoroAneManager {
   let m = KokoroAneManager(
-    defaultVoice: Defaults.voice, directory: Paths.bundleInstalled ? Paths.models : nil, computeUnits: .aneTailCpu)
+    defaultVoice: Defaults.voice, directory: Paths.bundleInstalled ? Paths.models : nil, computeUnits: kokoroUnits)
   try await m.initialize()
   return m
 }
@@ -45,11 +45,18 @@ actor Kokoro: Synthesizer {
   ///
   /// Setting them rebuilds Kokoro's text front end, so they're set only when they change.
   private var sounds: [String: String] = [:]
+  private var loaded = Date()
+  private var renders = 0
+  /// The time the previous render finished, or `nil` before the first render.
+  private var previousRender: Date?
+  /// What Kokoro did in the latest render, or `nil` before the first render.
+  private(set) var report: KokoroReport?
 
   /// Creates and loads the model.
   init() async throws {
     log("loading Kokoro (\(Paths.bundleInstalled ? Paths.models.path : "download from HuggingFace"))")
     manager = try await makeKokoro()
+    loaded = Date()
   }
 
   func render(_ sentence: String, sounds: [String: String], voice: String, speed: Float) async throws -> [Float] {
@@ -57,7 +64,12 @@ actor Kokoro: Synthesizer {
       await manager.setEnglishCustomLexicon(sounds)
       self.sounds = sounds
     }
-    return try await manager.synthesizeDetailed(text: sentence, voice: voice, speed: speed).samples
+    let idle = previousRender.map { Date().timeIntervalSince($0) }
+    let result = try await manager.synthesizeDetailed(text: sentence, voice: voice, speed: speed)
+    renders += 1
+    previousRender = Date()
+    report = KokoroReport(result, loaded: loaded, renders: renders, idle: idle)
+    return result.samples
   }
 }
 
@@ -98,6 +110,47 @@ actor ChatterboxNano: Synthesizer {
   }
 }
 
+/// Parakeet, which transcribes renders to check that they're speech.
+actor Listener {
+  private let asr = AsrManager()
+  private let converter = AudioConverter()
+
+  /// Creates and loads the model.
+  ///
+  /// The first load downloads the model, which is about 460 MB, into FluidAudio's cache.
+  ///
+  /// - Throws: An error if the model fails to download or load.
+  init() async throws {
+    try await asr.loadModels(AsrModels.downloadAndLoad())
+  }
+
+  /// Loads Parakeet, and downloads it first if it isn't installed.
+  ///
+  /// - Returns: The loaded model, or `nil` if it fails to download or load. The error is logged.
+  static func load() async -> Listener? {
+    log("loading Parakeet")
+    do {
+      let listener = try await Listener()
+      log("parakeet ready")
+      return listener
+    } catch {
+      log("Parakeet failed to load, so renders aren't checked: \(error)")
+      return nil
+    }
+  }
+
+  /// Returns the text that Parakeet hears in a render.
+  ///
+  /// - Parameter samples: Mono samples at ``Defaults/sampleRate``.
+  /// - Returns: The transcript.
+  /// - Throws: An error if the samples can't be resampled or transcribed.
+  func transcribe(_ samples: [Float]) async throws -> String {
+    let audio = try converter.resample(samples, from: Defaults.sampleRate)
+    var state = TdtDecoderState.make(decoderLayers: await asr.decoderLayerCount)
+    return try await asr.transcribe(audio, decoderState: &state).text
+  }
+}
+
 /// Creates and loads an engine's model.
 ///
 /// - Parameter engine: The engine to load.
@@ -131,7 +184,7 @@ actor Speaker {
   /// A queued request waits for it, and an interrupting request doesn't.
   private var tail: Task<Void, Never>?
   /// The latest render, which the next render waits for.
-  private var rendering: Task<[Float], Error>?
+  private var rendering: Task<([Float], KokoroReport?), Error>?
   /// The number of buffers scheduled on the player that haven't finished playing.
   private var pending = 0
   /// The number of requests that are speaking or waiting to speak.
@@ -142,6 +195,8 @@ actor Speaker {
   private var lastActive = Date()
   /// The pronunciation dictionary, loaded on first use.
   private lazy var lexicon = Lexicon.load()
+  /// The load of Parakeet, which starts with the first Kokoro request that has ``Settings/checkRenders`` on.
+  private lazy var listening = Task { await Listener.load() }
 
   init() {
     engine.attach(player)
@@ -217,6 +272,9 @@ actor Speaker {
         request.voice = Defaults.voice
       }
     }
+    // Start loading Parakeet now, so it loads while Kokoro renders the first sentence.
+    let checking = engine == .kokoro && Settings.load(from: Settings.file).checkRenders
+    if checking { _ = listening }
     // Kokoro would read Chatterbox Nano's tags aloud.
     let text = engine == .kokoro ? withoutTags(request.text) : request.text
     for (prepared, phonemes) in prepare(text, Pronunciations.load(from: request.pronunciationsFile), lexicon) {
@@ -229,9 +287,11 @@ actor Speaker {
         // The key names the cached file, so a bad render can be traced to its text.
         log("rendering \(key) (\(request.voice)): \(sentence)")
         do {
-          let out = try await render(sentence, sounds, engine: engine, voice: request.voice, speed: request.speed)
+          let (out, heard) = try await checkedRender(
+            sentence, sounds, key: key, request: request.text, engine: engine, voice: request.voice,
+            speed: request.speed, listener: checking ? listening : nil)
           samples = out
-          cache.put(key, out)
+          if heard { cache.put(key, out) }
         } catch {
           log("synthesis failed: \(error)")
           return
@@ -245,18 +305,77 @@ actor Speaker {
     }
   }
 
+  /// Renders a sentence, and renders it again if Parakeet can't hear the sentence in it.
+  ///
+  /// Kokoro on the Neural Engine sometimes renders a whole sentence as gibberish, and the next render of the same
+  /// sentence is usually correct. Each garbled render is logged as an error. Every attempt at a garbled sentence,
+  /// including the one that succeeds, is saved with a ``RenderReport`` by ``saveGarbled(_:)``.
+  ///
+  /// - Parameters:
+  ///   - sentence: The normalized sentence.
+  ///   - sounds: The custom pronunciations, as phonemes by word.
+  ///   - key: The sentence's cache key.
+  ///   - request: The text of the whole request, which is recorded in the reports.
+  ///   - engine: The engine to render with.
+  ///   - voice: The name of the voice.
+  ///   - speed: The speaking rate, where 1 is normal speed.
+  ///   - listener: The load of Parakeet, or `nil` to render once without checking. A render isn't checked if Parakeet
+  ///     fails to load.
+  /// - Returns: The samples, and whether they should be cached. Garbled samples aren't cached. If every attempt is
+  ///   garbled, the samples are from the attempt closest to the sentence.
+  /// - Throws: An error if a render fails.
+  private func checkedRender(
+    _ sentence: String, _ sounds: [String: String], key: String, request: String, engine: Engine, voice: String,
+    speed: Float, listener: Task<Listener?, Never>?
+  ) async throws -> (samples: [Float], heard: Bool) {
+    var attempts: [(samples: [Float], report: RenderReport)] = []
+    for attempt in 1...Defaults.renderAttempts {
+      let (samples, kokoro) = try await render(sentence, sounds, engine: engine, voice: voice, speed: speed)
+      guard let listener = await listener?.value else { return (samples, true) }
+      let transcript: String
+      do { transcript = try await listener.transcribe(samples) } catch {
+        log("couldn't check \(key): \(error)")
+        return (samples, true)
+      }
+      let error = transcriptError(transcript, sentence)
+      let garbled = error >= Defaults.garbled
+      attempts.append(
+        (
+          samples,
+          RenderReport(
+            key: key, attempt: attempt, request: request, sentence: sentence, sounds: sounds, voice: voice,
+            speed: speed, transcript: transcript, transcriptError: error, garbled: garbled, audio: AudioReport(samples),
+            kokoro: kokoro)
+        ))
+      if !garbled {
+        if attempt > 1 { saveGarbled(attempts) }
+        return (samples, true)
+      }
+      log("error: render \(attempt) of \(key) is garbled (\(Int(error * 100))% wrong). Parakeet heard: \(transcript)")
+    }
+    log("error: \(key) is still garbled after \(Defaults.renderAttempts) renders, so it's played but not cached")
+    saveGarbled(attempts)
+    let closest = attempts.min { $0.report.transcriptError < $1.report.transcriptError }
+    return (closest?.samples ?? [], false)
+  }
+
   /// Renders a sentence after any render already in progress.
   ///
   /// Rendering one sentence at a time keeps each sentence's custom pronunciations set while it renders, even when an
   /// interrupting request is rendering too.
+  ///
+  /// - Returns: The samples, and Kokoro's report on the render, which is `nil` for other engines.
   private func render(
     _ sentence: String, _ sounds: [String: String], engine: Engine, voice: String, speed: Float
-  ) async throws -> [Float] {
+  ) async throws -> (samples: [Float], kokoro: KokoroReport?) {
     let previous = rendering
     let task = Task {
       // Wait for the previous render, whether or not it succeeded.
       _ = try? await previous?.value
-      return try await self.synthesizer(engine).render(sentence, sounds: sounds, voice: voice, speed: speed)
+      let synthesizer = try await self.synthesizer(engine)
+      let samples = try await synthesizer.render(sentence, sounds: sounds, voice: voice, speed: speed)
+      // The report is read before the next render starts, so it describes this render.
+      return (samples, await (synthesizer as? Kokoro)?.report)
     }
     rendering = task
     return try await task.value

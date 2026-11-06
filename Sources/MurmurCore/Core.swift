@@ -188,6 +188,12 @@ public enum Defaults {
   public static let idleExit: TimeInterval = 10 * 60
   /// The maximum total size of the phrase cache, in bytes.
   public static let cacheBytes = 32 * 1024 * 1024
+  /// The ``transcriptError(_:_:)`` at or above which a render counts as garbled.
+  ///
+  /// Good renders score below 0.2, and garbled ones score above 0.8.
+  public static let garbled = 0.5
+  /// The number of times a sentence is rendered before a garbled render is played anyway.
+  public static let renderAttempts = 3
 }
 
 /// The locations of murmur's files.
@@ -204,6 +210,8 @@ public enum Paths {
   public static let phrases = caches.appendingPathComponent("phrases")
   /// The file that murmurd writes its log to.
   public static let log = caches.appendingPathComponent("murmurd.log")
+  /// The directory that holds garbled renders, named by their cache keys.
+  public static let garbled = caches.appendingPathComponent("garbled")
   /// The directory of the installed Kokoro Core ML bundle.
   ///
   /// The bundle holds the seven compiled model stages, the vocabulary and the voice packs.
