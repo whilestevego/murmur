@@ -98,6 +98,47 @@ actor ChatterboxNano: Synthesizer {
   }
 }
 
+/// Parakeet, which transcribes renders to check that they're speech.
+actor Listener {
+  private let asr = AsrManager()
+  private let converter = AudioConverter()
+
+  /// Creates and loads the model.
+  ///
+  /// The first load downloads the model, which is about 460 MB, into FluidAudio's cache.
+  ///
+  /// - Throws: An error if the model fails to download or load.
+  init() async throws {
+    try await asr.loadModels(AsrModels.downloadAndLoad())
+  }
+
+  /// Loads Parakeet, and downloads it first if it isn't installed.
+  ///
+  /// - Returns: The loaded model, or `nil` if it fails to download or load. The error is logged.
+  static func load() async -> Listener? {
+    log("loading Parakeet")
+    do {
+      let listener = try await Listener()
+      log("parakeet ready")
+      return listener
+    } catch {
+      log("Parakeet failed to load, so renders aren't checked: \(error)")
+      return nil
+    }
+  }
+
+  /// Returns the text that Parakeet hears in a render.
+  ///
+  /// - Parameter samples: Mono samples at ``Defaults/sampleRate``.
+  /// - Returns: The transcript.
+  /// - Throws: An error if the samples can't be resampled or transcribed.
+  func transcribe(_ samples: [Float]) async throws -> String {
+    let audio = try converter.resample(samples, from: Defaults.sampleRate)
+    var state = TdtDecoderState.make(decoderLayers: await asr.decoderLayerCount)
+    return try await asr.transcribe(audio, decoderState: &state).text
+  }
+}
+
 /// Creates and loads an engine's model.
 ///
 /// - Parameter engine: The engine to load.
@@ -142,6 +183,8 @@ actor Speaker {
   private var lastActive = Date()
   /// The pronunciation dictionary, loaded on first use.
   private lazy var lexicon = Lexicon.load()
+  /// The load of Parakeet, which starts with the first Kokoro request.
+  private lazy var listening = Task { await Listener.load() }
 
   init() {
     engine.attach(player)
@@ -217,6 +260,8 @@ actor Speaker {
         request.voice = Defaults.voice
       }
     }
+    // Load Parakeet while Kokoro renders the first sentence.
+    if engine == .kokoro { _ = listening }
     // Kokoro would read Chatterbox Nano's tags aloud.
     let text = engine == .kokoro ? withoutTags(request.text) : request.text
     for (prepared, phonemes) in prepare(text, Pronunciations.load(from: request.pronunciationsFile), lexicon) {
@@ -229,9 +274,10 @@ actor Speaker {
         // The key names the cached file, so a bad render can be traced to its text.
         log("rendering \(key) (\(request.voice)): \(sentence)")
         do {
-          let out = try await render(sentence, sounds, engine: engine, voice: request.voice, speed: request.speed)
+          let (out, heard) = try await checkedRender(
+            sentence, sounds, key: key, engine: engine, voice: request.voice, speed: request.speed)
           samples = out
-          cache.put(key, out)
+          if heard { cache.put(key, out) }
         } catch {
           log("synthesis failed: \(error)")
           return
@@ -243,6 +289,44 @@ actor Speaker {
       guard gen == generation else { return }
       play(samples)
     }
+  }
+
+  /// Renders a sentence, and renders it again if Parakeet can't hear the sentence in it.
+  ///
+  /// Kokoro on the Neural Engine sometimes renders a whole sentence as gibberish, and the next render of the same
+  /// sentence is usually correct. Each garbled render is logged as an error and saved in ``Paths/garbled``. Renders
+  /// from other engines aren't checked, and neither are any renders if Parakeet fails to load.
+  ///
+  /// - Returns: The samples, and whether Parakeet heard the sentence in them. If every attempt is garbled, the samples
+  ///   are from the attempt closest to the sentence.
+  /// - Throws: An error if a render fails.
+  private func checkedRender(
+    _ sentence: String, _ sounds: [String: String], key: String, engine: Engine, voice: String, speed: Float
+  ) async throws -> (samples: [Float], heard: Bool) {
+    var closest: (samples: [Float], error: Double)?
+    for attempt in 1...Defaults.renderAttempts {
+      let samples = try await render(sentence, sounds, engine: engine, voice: voice, speed: speed)
+      guard engine == .kokoro, let listener = await listening.value else { return (samples, true) }
+      let transcript: String
+      do { transcript = try await listener.transcribe(samples) } catch {
+        log("couldn't check \(key): \(error)")
+        return (samples, true)
+      }
+      let error = transcriptError(transcript, sentence)
+      if error < Defaults.garbled { return (samples, true) }
+      log("error: render \(attempt) of \(key) is garbled (\(Int(error * 100))% wrong). Parakeet heard: \(transcript)")
+      save(samples, as: "\(key)-\(attempt)")
+      if error < closest?.error ?? .infinity { closest = (samples, error) }
+    }
+    log("error: \(key) is still garbled after \(Defaults.renderAttempts) renders, so it's played but not cached")
+    return (closest?.samples ?? [], false)
+  }
+
+  /// Writes samples to ``Paths/garbled``, in the phrase cache's format.
+  private func save(_ samples: [Float], as name: String) {
+    let file = Paths.garbled.appendingPathComponent("\(name).f32")
+    try? FileManager.default.createDirectory(at: Paths.garbled, withIntermediateDirectories: true)
+    try? samples.withUnsafeBytes { Data($0) }.write(to: file)
   }
 
   /// Renders a sentence after any render already in progress.
