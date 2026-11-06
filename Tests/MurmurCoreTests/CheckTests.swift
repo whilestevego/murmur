@@ -32,3 +32,12 @@ final class CheckTests: XCTestCase {
     XCTAssertEqual(transcriptError("abc", "..."), 0)
   }
 }
+
+final class SettingsTests: XCTestCase {
+  let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../Fixtures")
+
+  func testChecksRendersOnlyWhenTurnedOn() {
+    XCTAssertTrue(Settings.load(from: fixtures.appendingPathComponent("config")).checkRenders)
+    XCTAssertFalse(Settings.load(from: fixtures.appendingPathComponent("missing")).checkRenders)
+  }
+}
