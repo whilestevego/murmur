@@ -16,7 +16,8 @@ public enum Pronunciations {
     "goto": "go to", "Goto": "Go to", "GOTO": "go to", "gotos": "go tos",
     "repos": "reepos", "Repos": "Reepos", "monorepo": "mono reepo", "Monorepo": "Mono reepo",
     "monorepos": "mono reepos", "Monorepos": "Mono reepos",
-    "README": "read me", "npm": "N P M", "ssn": "S S N", "tv": "T V",
+    "README": "read me", "npm": "N P M", "MCP": "M C P", "mcp": "M C P", "Mcp": "M C P", "MCPs": "M C Pees",
+    "mcps": "M C Pees", "ssn": "S S N", "tv": "T V",
     // Phonemes between slashes are used as they are, and also as the stem of words such as "rebased".
     "rebase": "/ɹˈibˌAs/", "debounce": "/dibˈWns/", "plugin": "/plˈʌɡˌɪn/",
     "macOS": "mac O S", "GraphQL": "graph Q L", "OAuth": "oh auth",
