@@ -20,6 +20,7 @@ public enum Pronunciations {
     "mcps": "M C Pees", "ssn": "S S N", "tv": "T V",
     // Phonemes between slashes are used as they are, and also as the stem of words such as "rebased".
     "rebase": "/ɹˈibˌAs/", "debounce": "/dibˈWns/", "plugin": "/plˈʌɡˌɪn/",
+    "backorder": "/bˈækˌɔɹdəɹ/",
     "macOS": "mac O S", "GraphQL": "graph Q L", "OAuth": "oh auth",
     "kubectl": "cube control", "nginx": "engine X",
     "stdout": "standard out", "stderr": "standard error", "stdin": "standard in",
